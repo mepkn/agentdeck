@@ -32,3 +32,10 @@ export function timeAgo(ms: number, now = Date.now()): string {
 export function sortSessions(list: Info[]): Info[] {
   return [...list].sort((a, b) => b.updatedAt - a.updatedAt);
 }
+
+// 39147 → "39K", 1000000 → "1M".
+export function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${+(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1000) return `${Math.round(n / 1000)}K`;
+  return String(n);
+}

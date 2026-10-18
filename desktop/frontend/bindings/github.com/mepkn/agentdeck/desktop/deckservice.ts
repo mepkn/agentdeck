@@ -76,6 +76,18 @@ export function Sessions(): $CancellablePromise<sessions$0.Info[] | null> {
     return $Call.ByID(3387663901);
 }
 
+export function SetEffort(id: string, effort: string): $CancellablePromise<void> {
+    return $Call.ByID(2817517790, id, effort);
+}
+
+export function SetMode(id: string, mode: string): $CancellablePromise<void> {
+    return $Call.ByID(2410556211, id, mode);
+}
+
+export function SetModel(id: string, model: string): $CancellablePromise<void> {
+    return $Call.ByID(2385397389, id, model);
+}
+
 export function Sleep(id: string): $CancellablePromise<void> {
     return $Call.ByID(637421475, id);
 }

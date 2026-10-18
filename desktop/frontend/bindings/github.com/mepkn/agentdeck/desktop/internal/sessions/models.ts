@@ -22,6 +22,7 @@ export interface Info {
     "status": string;
     "prompt": screen$0.Prompt | null;
     "unread": boolean;
+    "meta": agents$0.Meta;
 }
 
 export interface ItemsEvent {

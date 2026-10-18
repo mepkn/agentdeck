@@ -45,3 +45,52 @@ func TestClaudeLogPath(t *testing.T) {
 		t.Errorf("LogPath = %s", got)
 	}
 }
+
+func TestClaudeReadStatus(t *testing.T) {
+	var m Meta
+	claude{}.ReadStatus([]byte(`{"model":{"id":"claude-opus-5-5","display_name":"Opus 5.5"},
+		"context_window":{"context_window_size":1000000,"current_usage":{"input_tokens":2,"cache_creation_input_tokens":79,"cache_read_input_tokens":67435}}}`), &m)
+	if m.Model != "Opus 5.5" || m.ContextWindow != 1000000 || m.ContextUsed != 67516 {
+		t.Fatalf("got %+v", m)
+	}
+	claude{}.ReadStatus([]byte(`{"model":{"display_name":"Opus 5.5"},"context_window":{"context_window_size":200000,"current_usage":null}}`), &m)
+	if m.ContextUsed != 0 || m.ContextWindow != 200000 {
+		t.Fatalf("no usage yet: got %+v", m)
+	}
+}
+
+func TestClaudeScreenMode(t *testing.T) {
+	lines := []string{"────", "❯", "────", "  ⏵⏵ accept edits on (shift+tab to cycle)"}
+	if got := (claude{}).ScreenMode(lines, true); got != "acceptEdits" {
+		t.Fatalf("got %q", got)
+	}
+	lines[3] = "  ? for shortcuts"
+	if got := (claude{}).ScreenMode(lines, true); got != "default" {
+		t.Fatalf("idle with no mode shown: got %q", got)
+	}
+	if got := (claude{}).ScreenMode(lines, false); got != "" {
+		t.Fatalf("busy with no mode shown: got %q", got)
+	}
+	if got := (claude{}).ScreenMode([]string{"⏺ OK"}, true); got != "" {
+		t.Fatalf("no input box yet: got %q", got)
+	}
+}
+
+func TestReadModelList(t *testing.T) {
+	ml := readModelList([]string{
+		"  1. Some numbered chat line",
+		"   Select model",
+		"     1.  Default (recommended)  Haiku 5.5",
+		"   ❯ 2.  Opus 5.5 ✔             For complex work and everyday tasks",
+		"     3.  Sonnet 5.5             Most efficient for simpler tasks",
+		"   ↓ 6.  Haiku 4.5              Fastest for quick answers",
+		"   ◉ xHigh effort ←/→ to adjust",
+		"   Enter to set as default · s to use this session only · Esc to cancel",
+	})
+	if !ml.ready || ml.cursor != 1 || ml.current != 1 || ml.effort != "xhigh" {
+		t.Fatalf("got %+v", ml)
+	}
+	if ml.rows[0] != "Default (recommended)" || ml.rows[1] != "Opus 5.5" || ml.rows[3] != "Haiku 4.5" {
+		t.Fatalf("rows %q", ml.rows)
+	}
+}

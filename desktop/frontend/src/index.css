@@ -76,6 +76,9 @@
   --status-working: oklch(0.8 0.14 85);
   --status-waiting: oklch(0.7 0.18 30);
   --status-done: oklch(0.78 0.15 160);
+  --agent-claude: oklch(0.68 0.11 40);
+  --agent-codex: oklch(0.68 0.11 250);
+  --agent-antigravity: oklch(0.68 0.11 300);
 }
 
 @theme inline {

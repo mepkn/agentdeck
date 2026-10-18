@@ -25,8 +25,12 @@ type recorder struct {
 
 func (r *recorder) SessionChanged(i Info) { r.mu.Lock(); r.last = i; r.mu.Unlock() }
 func (r *recorder) SessionRemoved(string) {}
-func (r *recorder) Items(e ItemsEvent)    { r.mu.Lock(); r.items = append(r.items, e.Items...); r.mu.Unlock() }
-func (r *recorder) Output(OutputEvent)    {}
+func (r *recorder) Items(e ItemsEvent) {
+	r.mu.Lock()
+	r.items = append(r.items, e.Items...)
+	r.mu.Unlock()
+}
+func (r *recorder) Output(OutputEvent) {}
 
 func (r *recorder) info() Info { r.mu.Lock(); defer r.mu.Unlock(); return r.last }
 
@@ -50,7 +54,10 @@ func TestSmoke(t *testing.T) {
 	}
 	dir := t.TempDir()
 	dir, _ = filepath.EvalSymlinks(dir)
-	st, err := store.Open(filepath.Join(t.TempDir(), "state.json"))
+	// Not t.TempDir: a watcher may still save state as the test ends.
+	stateDir, _ := os.MkdirTemp("", "agentdeck-smoke")
+	t.Cleanup(func() { _ = os.RemoveAll(stateDir) })
+	st, err := store.Open(filepath.Join(stateDir, "state.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,6 +105,16 @@ func TestSmoke(t *testing.T) {
 		}
 		return i.Status == StatusIdle
 	})
+	// Permission mode: read off the footer and changed with shift+tab.
+	waitFor(t, "the permission mode", 10*time.Second, func() bool { return rec.info().Meta.Mode != "" })
+	start := rec.info().Meta.Mode
+	t.Logf("mode at start: %s", start)
+	if err := m.SetMode(s.ID, "plan"); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.SetMode(s.ID, start); err != nil {
+		t.Fatal(err)
+	}
 	if err := m.Send(s.ID, "Reply with just: OK"); err != nil {
 		t.Fatal(err)
 	}
@@ -114,6 +131,38 @@ func TestSmoke(t *testing.T) {
 	for _, it := range items {
 		t.Logf("%s: %q", it.Kind, it.Text)
 	}
+	waitFor(t, "the context use", 10*time.Second, func() bool { return rec.info().Meta.ContextUsed > 0 })
+	t.Logf("meta: %+v", rec.info().Meta)
+	home, _ := os.UserHomeDir()
+	settings, _ := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
+	defer func() {
+		if after, _ := os.ReadFile(filepath.Join(home, ".claude", "settings.json")); string(after) != string(settings) {
+			t.Error("switching the model changed ~/.claude/settings.json")
+		}
+	}()
+	effort := rec.info().Meta.Effort
+	if err := m.SetEffort(s.ID, "high"); err != nil {
+		t.Fatal(err)
+	}
+	// A conversation cached for one model or effort asks before switching.
+	confirm := func() {
+		if i := rec.info(); i.Prompt != nil && strings.HasPrefix(i.Prompt.Options[0].Label, "Yes") {
+			_ = m.Answer(s.ID, 1)
+			time.Sleep(time.Second)
+		}
+	}
+	waitFor(t, "the effort to change", 20*time.Second, func() bool { confirm(); return rec.info().Meta.Effort == "high" })
+	if err := m.SetModel(s.ID, "haiku"); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the model to change", 20*time.Second, func() bool {
+		confirm()
+		return strings.Contains(rec.info().Meta.Model, "Haiku")
+	})
+	if got := rec.info().Meta.Effort; got != "high" {
+		t.Errorf("switching the model reset the effort to %q", got)
+	}
+	t.Logf("effort was %q, now %+v", effort, rec.info().Meta)
 	waitFor(t, "the title", 5*time.Second, func() bool { return rec.info().Title != "" })
 	if err := m.Sleep(s.ID); err != nil {
 		t.Fatal(err)

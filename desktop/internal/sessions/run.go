@@ -23,12 +23,16 @@ type run struct {
 	started time.Time
 	done    chan struct{}
 
-	mu       sync.Mutex
-	buf      []byte
-	end      int64 // bytes of output so far
-	dirty    bool
-	cols     int
-	rows     int
+	mu    sync.Mutex
+	buf   []byte
+	end   int64 // bytes of output so far
+	dirty bool
+	cols  int
+	rows  int
+	// While held, the terminal view's size waits here.
+	held     bool
+	wantCols int
+	wantRows int
 	onOutput func(start int64, data []byte)
 }
 
@@ -113,6 +117,11 @@ func (r *run) screen() ([]string, bool) {
 	dirty := r.dirty
 	r.dirty = false
 	r.mu.Unlock()
+	return r.lines(), dirty
+}
+
+// lines reads the screen without touching the dirty flag the watcher uses.
+func (r *run) lines() []string {
 	r.vt.Lock()
 	defer r.vt.Unlock()
 	cols, rows := r.vt.Size()
@@ -129,7 +138,7 @@ func (r *run) screen() ([]string, bool) {
 		}
 		lines[y] = strings.TrimRight(sb.String(), " ")
 	}
-	return lines, dirty
+	return lines
 }
 
 func (r *run) write(s string) error {
@@ -141,6 +150,37 @@ func (r *run) resize(cols, rows int) error {
 	if cols < 20 || rows < 5 {
 		return nil
 	}
+	r.mu.Lock()
+	if r.held {
+		r.wantCols, r.wantRows = cols, rows
+		r.mu.Unlock()
+		return nil
+	}
+	r.mu.Unlock()
+	return r.setSize(cols, rows)
+}
+
+// atLeast makes the terminal at least rows tall until release is called,
+// for driving a menu that a short terminal would cut off.
+func (r *run) atLeast(rows int) (release func()) {
+	r.mu.Lock()
+	cols, was := r.cols, r.rows
+	r.held, r.wantCols, r.wantRows = true, cols, was
+	r.mu.Unlock()
+	if was < rows {
+		_ = r.setSize(cols, rows)
+		time.Sleep(300 * time.Millisecond) // let the CLI redraw
+	}
+	return func() {
+		r.mu.Lock()
+		r.held = false
+		c, h := r.wantCols, r.wantRows
+		r.mu.Unlock()
+		_ = r.setSize(c, h)
+	}
+}
+
+func (r *run) setSize(cols, rows int) error {
 	r.mu.Lock()
 	same := cols == r.cols && rows == r.rows
 	r.cols, r.rows = cols, rows

@@ -46,7 +46,7 @@ export default function App() {
           key={session.id}
           session={session}
           project={projects.find((p) => p.id === session.projectId)}
-          agentName={agents.find((a) => a.id === session.agent)?.name ?? session.agent}
+          agent={agents.find((a) => a.id === session.agent)}
         />
       ) : (
         <main className="flex flex-1 flex-col">

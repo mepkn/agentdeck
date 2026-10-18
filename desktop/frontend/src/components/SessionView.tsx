@@ -2,19 +2,21 @@ import { useEffect, useState } from "react";
 import { MessageSquareIcon, MoonIcon, PlayIcon, SquareTerminalIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ChatControls } from "@/components/ChatControls";
 import { ChatView } from "@/components/ChatView";
 import { Composer } from "@/components/Composer";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PromptCard } from "@/components/PromptCard";
 import { StatusDot } from "@/components/StatusDot";
 import { TerminalView } from "@/components/TerminalView";
-import { Deck, errorMessage, type Info, type Project } from "@/lib/api";
+import { Deck, errorMessage, type AgentInfo, type Info, type Project } from "@/lib/api";
 import { dotFor, statusLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type View = "chat" | "terminal";
 
-export function SessionView({ session, project, agentName }: { session: Info; project?: Project; agentName: string }) {
+export function SessionView({ session, project, agent }: { session: Info; project?: Project; agent?: AgentInfo }) {
+  const agentName = agent?.name ?? session.agent;
   const [view, setView] = useState<View>("chat");
   const [closing, setClosing] = useState(false);
   const asleep = session.status === "asleep";
@@ -101,7 +103,7 @@ export function SessionView({ session, project, agentName }: { session: Info; pr
       </div>
 
       {view === "chat" && (
-        <div className="mx-auto w-full max-w-3xl shrink-0 space-y-3 px-6 pb-5">
+        <div className="mx-auto w-full max-w-3xl shrink-0 space-y-3 px-6 pb-3">
           {session.prompt && !asleep && <PromptCard sessionId={session.id} prompt={session.prompt} />}
           {asleep ? (
             <div className="flex items-center justify-between rounded-xl border border-dashed p-3 pl-4 text-sm text-muted-foreground">
@@ -111,7 +113,10 @@ export function SessionView({ session, project, agentName }: { session: Info; pr
               </Button>
             </div>
           ) : (
-            <Composer key={session.id} sessionId={session.id} working={working} />
+            <div className="space-y-1">
+              <Composer key={session.id} sessionId={session.id} working={working} />
+              <ChatControls session={session} agent={agent} />
+            </div>
           )}
         </div>
       )}

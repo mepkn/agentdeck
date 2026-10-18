@@ -31,6 +31,7 @@ type Info struct {
 	Status string         `json:"status"`
 	Prompt *screen.Prompt `json:"prompt"`
 	Unread bool           `json:"unread"`
+	Meta   agents.Meta    `json:"meta"`
 }
 
 type ItemsEvent struct {
@@ -67,6 +68,10 @@ type live struct {
 	status  string
 	prompt  *screen.Prompt
 	unread  bool
+	meta    agents.Meta
+	// The status file the CLI writes, and its last modification read.
+	statusFile string
+	statusMod  time.Time
 
 	parser  agents.Parser
 	items   []agents.Item
@@ -83,15 +88,23 @@ type Manager struct {
 	live   map[string]*live
 	focus  string
 	closed bool
+	// Where CLIs write their status files.
+	statusDir string
 }
 
 func New(st *store.Store, ev Events) *Manager {
 	m := &Manager{st: st, ev: ev, live: map[string]*live{}}
+	if dir, err := os.UserCacheDir(); err == nil {
+		m.statusDir = filepath.Join(dir, "agentdeck", "status")
+	}
 	for _, s := range st.Sessions() {
 		a, ok := agents.Get(s.Agent)
 		p, pok := st.Project(s.ProjectID)
 		if !ok || !pok {
 			continue
+		}
+		if strings.HasPrefix(s.Title, "/") {
+			s.Title = "" // named after a slash command by an older version
 		}
 		m.live[s.ID] = &live{s: s, adapter: a, dir: p.Path, status: StatusAsleep}
 	}
@@ -99,7 +112,7 @@ func New(st *store.Store, ev Events) *Manager {
 }
 
 func (l *live) info() Info {
-	return Info{Session: l.s, Status: l.status, Prompt: l.prompt, Unread: l.unread}
+	return Info{Session: l.s, Status: l.status, Prompt: l.prompt, Unread: l.unread, Meta: l.meta}
 }
 
 func (m *Manager) List() []Info {
@@ -171,9 +184,12 @@ func (m *Manager) spawn(l *live, resume bool) error {
 	if m.closed {
 		return errors.New("shutting down")
 	}
-	r, err := startRun(l.adapter.Binary(), l.adapter.Args(agents.Launch{
-		Dir: l.dir, AgentSessionID: l.s.AgentSessionID, Resume: resume,
-	}), l.dir)
+	launch := agents.Launch{Dir: l.dir, AgentSessionID: l.s.AgentSessionID, Resume: resume}
+	if _, ok := l.adapter.(agents.Controls); ok && m.statusDir != "" && os.MkdirAll(m.statusDir, 0o700) == nil {
+		launch.StatusFile = filepath.Join(m.statusDir, l.s.ID+".json")
+		l.statusFile = launch.StatusFile
+	}
+	r, err := startRun(l.adapter.Binary(), l.adapter.Args(launch), l.dir)
 	if err != nil {
 		return err
 	}
@@ -216,7 +232,10 @@ func (m *Manager) watch(l *live, r *run) {
 			changed := m.titleFrom(items, l)
 			if dirty || l.status == StatusStarting {
 				changed = m.applyScreen(l, screen.Read(lines)) || changed
+				changed = l.readMode(lines) || changed
 			}
+			changed = l.readStatus() || changed
+			changed = l.contextFromLog() || changed
 			info := l.info()
 			m.mu.Unlock()
 			m.emitItems(l.s.ID, items)
@@ -246,6 +265,139 @@ func (m *Manager) applyScreen(l *live, s screen.State) bool {
 	return changed
 }
 
+// readMode reads the permission mode off the screen; callers hold mu.
+func (l *live) readMode(lines []string) bool {
+	c, ok := l.adapter.(agents.Controls)
+	if !ok {
+		return false
+	}
+	mode := c.ScreenMode(lines, l.status == StatusIdle)
+	if mode == "" || mode == l.meta.Mode {
+		return false
+	}
+	l.meta.Mode = mode
+	return true
+}
+
+// readStatus reads the status file when it changed; callers hold mu.
+func (l *live) readStatus() bool {
+	c, ok := l.adapter.(agents.Controls)
+	if !ok || l.statusFile == "" {
+		return false
+	}
+	fi, err := os.Stat(l.statusFile)
+	if err != nil || fi.ModTime().Equal(l.statusMod) {
+		return false
+	}
+	data, err := os.ReadFile(l.statusFile)
+	if err != nil {
+		return false
+	}
+	l.statusMod = fi.ModTime()
+	before := l.meta
+	c.ReadStatus(data, &l.meta)
+	l.contextFromLog()
+	return l.meta != before
+}
+
+// contextFromLog fills in the context use from the session log until the
+// status line reports it; callers hold mu.
+func (l *live) contextFromLog() bool {
+	p, ok := l.parser.(agents.ContextParser)
+	if !ok || l.meta.ContextUsed != 0 || p.Context() == 0 {
+		return false
+	}
+	l.meta.ContextUsed = p.Context()
+	return true
+}
+
+// SetModel switches the session's model.
+func (m *Manager) SetModel(id, value string) error {
+	m.mu.Lock()
+	l, err := m.get(id)
+	m.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	c, ok := l.adapter.(agents.Controls)
+	if !ok {
+		return errors.New("this agent's model can't be changed here")
+	}
+	r, err := m.running(id)
+	if err != nil {
+		return err
+	}
+	m.mu.Lock()
+	effort := l.meta.Effort
+	m.mu.Unlock()
+	// Keep the effort, which switching would reset to the model's default.
+	defer r.atLeast(30)()
+	return c.Pick(term{r}, value, effort)
+}
+
+// SetEffort changes the session's effort level.
+func (m *Manager) SetEffort(id, effort string) error {
+	m.mu.Lock()
+	l, err := m.get(id)
+	m.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	c, ok := l.adapter.(agents.Controls)
+	if !ok {
+		return errors.New("this agent's effort can't be changed here")
+	}
+	r, err := m.running(id)
+	if err != nil {
+		return err
+	}
+	defer r.atLeast(30)()
+	return c.Pick(term{r}, "", effort)
+}
+
+// term lets an adapter drive a session's terminal.
+type term struct{ r *run }
+
+func (t term) Lines() []string      { return t.r.lines() }
+func (t term) Write(s string) error { return t.r.write(s) }
+
+// SetMode cycles the permission mode with shift+tab until the screen shows
+// the one asked for.
+func (m *Manager) SetMode(id, mode string) error {
+	r, err := m.running(id)
+	if err != nil {
+		return err
+	}
+	m.mu.Lock()
+	l := m.live[id]
+	m.mu.Unlock()
+	c, ok := l.adapter.(agents.Controls)
+	if !ok {
+		return errors.New("this agent's mode can't be changed here")
+	}
+	for range len(c.Modes()) + 1 {
+		lines := r.lines()
+		m.mu.Lock()
+		cur := c.ScreenMode(lines, l.status == StatusIdle)
+		if cur != "" && cur != l.meta.Mode {
+			l.meta.Mode = cur
+			info := l.info()
+			m.mu.Unlock()
+			m.ev.SessionChanged(info)
+		} else {
+			m.mu.Unlock()
+		}
+		if cur == mode {
+			return nil
+		}
+		if err := r.write("\x1b[Z"); err != nil {
+			return err
+		}
+		time.Sleep(400 * time.Millisecond)
+	}
+	return errors.New("the agent didn't offer that mode; bypass needs to be allowed in its settings")
+}
+
 func samePrompt(a, b *screen.Prompt) bool {
 	if a == nil || b == nil {
 		return a == b
@@ -266,9 +418,10 @@ func (m *Manager) titleFrom(items []agents.Item, l *live) bool {
 	if len(items) > 0 {
 		l.s.UpdatedAt = time.Now().UnixMilli()
 	}
-	if l.s.Title == "" {
+	// Slash commands don't make a title.
+	if l.s.Title == "" || strings.HasPrefix(l.s.Title, "/") {
 		for _, it := range items {
-			if it.Kind == "user" {
+			if it.Kind == "user" && !strings.HasPrefix(it.Text, "/") {
 				t := strings.Join(strings.Fields(it.Text), " ")
 				if r := []rune(t); len(r) > 60 {
 					t = string(r[:59]) + "…"

@@ -47,9 +47,14 @@ func (d *DeckService) Focus(id string)       { d.m.Focus(id) }
 func (d *DeckService) Items(id string) ([]agents.Item, error) { return d.m.Items(id) }
 
 func (d *DeckService) Send(id, text string) error      { return d.m.Send(id, text) }
-func (d *DeckService) Key(id, key string) error        { return d.m.Key(id, key) }
-func (d *DeckService) Answer(id string, n int) error   { return d.m.Answer(id, n) }
-func (d *DeckService) Input(id, data string) error     { return d.m.Input(id, data) }
+func (d *DeckService) SetModel(id, model string) error { return d.m.SetModel(id, model) }
+func (d *DeckService) SetEffort(id, effort string) error {
+	return d.m.SetEffort(id, effort)
+}
+func (d *DeckService) SetMode(id, mode string) error { return d.m.SetMode(id, mode) }
+func (d *DeckService) Key(id, key string) error      { return d.m.Key(id, key) }
+func (d *DeckService) Answer(id string, n int) error { return d.m.Answer(id, n) }
+func (d *DeckService) Input(id, data string) error   { return d.m.Input(id, data) }
 func (d *DeckService) Resize(id string, cols, rows int) error {
 	return d.m.Resize(id, cols, rows)
 }
