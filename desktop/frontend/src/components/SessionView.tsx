@@ -1,0 +1,129 @@
+import { useEffect, useState } from "react";
+import { MessageSquareIcon, MoonIcon, PlayIcon, SquareTerminalIcon, XIcon } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { ChatView } from "@/components/ChatView";
+import { Composer } from "@/components/Composer";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { PromptCard } from "@/components/PromptCard";
+import { StatusDot } from "@/components/StatusDot";
+import { TerminalView } from "@/components/TerminalView";
+import { Deck, errorMessage, type Info, type Project } from "@/lib/api";
+import { dotFor, statusLabel } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
+type View = "chat" | "terminal";
+
+export function SessionView({ session, project, agentName }: { session: Info; project?: Project; agentName: string }) {
+  const [view, setView] = useState<View>("chat");
+  const [closing, setClosing] = useState(false);
+  const asleep = session.status === "asleep";
+  const working = session.status === "working" || session.status === "starting";
+  const dot = dotFor(session);
+
+  // ⌘J switches between chat and terminal.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey && e.key.toLowerCase() === "j") {
+        e.preventDefault();
+        setView((v) => (v === "chat" ? "terminal" : "chat"));
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+
+  async function run(fn: () => Promise<unknown>, failed: string) {
+    try {
+      await fn();
+    } catch (e) {
+      toast.error(errorMessage(e, failed));
+    }
+  }
+
+  return (
+    <div className="flex h-full min-w-0 flex-1 flex-col">
+      <header className="drag flex h-11 shrink-0 items-center gap-3 border-b px-4">
+        <StatusDot dot={dot} />
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-sm font-medium">{session.title || "New session"}</h1>
+        </div>
+        <span className="hidden truncate text-xs text-muted-foreground md:block">
+          {agentName} · {project?.name} · {statusLabel[dot]}
+        </span>
+        <div className="no-drag flex rounded-lg bg-muted p-0.5">
+          {(["chat", "terminal"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              title={`${v === "chat" ? "Chat" : "Terminal"} (⌘J)`}
+              className={cn(
+                "flex h-6 items-center gap-1.5 rounded-md px-2.5 text-xs text-muted-foreground",
+                view === v && "bg-background text-foreground shadow-sm",
+              )}
+            >
+              {v === "chat" ? <MessageSquareIcon className="size-3.5" /> : <SquareTerminalIcon className="size-3.5" />}
+              {v === "chat" ? "Chat" : "Terminal"}
+            </button>
+          ))}
+        </div>
+        <div className="no-drag flex items-center gap-1">
+          {asleep ? (
+            <Button variant="ghost" size="icon-sm" title="Wake" aria-label="Wake" onClick={() => run(() => Deck.Wake(session.id), "Could not wake the session.")}>
+              <PlayIcon />
+            </Button>
+          ) : (
+            <Button variant="ghost" size="icon-sm" title="Sleep (stop the agent, keep the session)" aria-label="Sleep" onClick={() => run(() => Deck.Sleep(session.id), "Could not stop the agent.")}>
+              <MoonIcon />
+            </Button>
+          )}
+          <Button variant="ghost" size="icon-sm" title="Close session" aria-label="Close session" onClick={() => setClosing(true)}>
+            <XIcon />
+          </Button>
+        </div>
+      </header>
+
+      <div className="relative min-h-0 flex-1">
+        <div className={cn("absolute inset-0", view !== "chat" && "invisible")}>
+          <ChatView sessionId={session.id} working={working && !session.prompt} />
+        </div>
+        {!asleep && (
+          <div className={cn("absolute inset-0", view !== "terminal" && "invisible")}>
+            <TerminalView key={session.id} sessionId={session.id} visible={view === "terminal"} />
+          </div>
+        )}
+        {asleep && view === "terminal" && (
+          <div className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">
+            The agent is asleep. Wake it to open its terminal.
+          </div>
+        )}
+      </div>
+
+      {view === "chat" && (
+        <div className="mx-auto w-full max-w-3xl shrink-0 space-y-3 px-6 pb-5">
+          {session.prompt && !asleep && <PromptCard sessionId={session.id} prompt={session.prompt} />}
+          {asleep ? (
+            <div className="flex items-center justify-between rounded-xl border border-dashed p-3 pl-4 text-sm text-muted-foreground">
+              Asleep. Wake to continue where it left off.
+              <Button size="sm" onClick={() => run(() => Deck.Wake(session.id), "Could not wake the session.")}>
+                <PlayIcon /> Wake
+              </Button>
+            </div>
+          ) : (
+            <Composer key={session.id} sessionId={session.id} working={working} />
+          )}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={closing}
+        onOpenChange={setClosing}
+        title="Close this session?"
+        description="The agent is stopped and the session leaves agentdeck. Its history stays in the agent's own files."
+        confirmLabel="Close"
+        onConfirm={() => Deck.Close(session.id)}
+      />
+    </div>
+  );
+}
