@@ -48,7 +48,7 @@ export function SessionView({ session, project, agent }: { session: Info; projec
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col">
-      <header className="drag flex h-11 shrink-0 items-center gap-3 border-b px-4">
+      <header className="drag flex h-13 shrink-0 items-center gap-3 border-b px-4 group-data-[sidebar=hidden]/app:pl-31">
         <StatusDot dot={dot} />
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-sm font-medium">{session.title || "New session"}</h1>

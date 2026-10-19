@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRightIcon, FolderPlusIcon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
+import { ChevronRightIcon, FolderPlusIcon, MoreHorizontalIcon, PanelLeftIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,9 +35,10 @@ type Props = {
   onSelect: (id: string) => void;
   onAddProject: () => void;
   onProjectRemoved: () => void;
+  onHide: () => void;
 };
 
-export function Sidebar({ projects, sessions, agents, selected, onSelect, onAddProject, onProjectRemoved }: Props) {
+export function Sidebar({ projects, sessions, agents, selected, onSelect, onAddProject, onProjectRemoved, onHide }: Props) {
   const [removing, setRemoving] = useState<Project | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
   function toggle(id: string) {
@@ -65,9 +66,12 @@ export function Sidebar({ projects, sessions, agents, selected, onSelect, onAddP
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       {/* Room for the macOS traffic lights; drags the window. */}
-      <div className="drag flex h-11 shrink-0 items-center justify-end px-2">
+      <div className="drag flex h-13 shrink-0 items-center justify-end px-2">
         <Button variant="ghost" size="icon-sm" className="no-drag" aria-label="Add project" title="Add project" onClick={onAddProject}>
           <FolderPlusIcon />
+        </Button>
+        <Button variant="ghost" size="icon-sm" className="no-drag" aria-label="Hide sidebar" title="Hide sidebar" onClick={onHide}>
+          <PanelLeftIcon />
         </Button>
       </div>
       <nav className="flex-1 overflow-y-auto px-2 pb-4">
