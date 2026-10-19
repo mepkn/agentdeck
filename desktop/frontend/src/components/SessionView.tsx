@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ChatControls, ControlsToggle } from "@/components/ChatControls";
 import { ChatView } from "@/components/ChatView";
 import { Composer } from "@/components/Composer";
+import { OpenInButton } from "@/components/OpenIn";
 import { PromptCard } from "@/components/PromptCard";
 import { StatusDot } from "@/components/StatusDot";
 import { TerminalView } from "@/components/TerminalView";
@@ -54,6 +55,7 @@ export function SessionView({ session, project, agent }: { session: Info; projec
         <span className="hidden truncate text-xs text-muted-foreground md:block">
           {agentName} · {project?.name} · {statusLabel[dot]}
         </span>
+        {project && <OpenInButton projectId={project.id} />}
         <div className="no-drag flex rounded-lg bg-muted p-0.5">
           {(["chat", "terminal"] as const).map((v) => (
             <button

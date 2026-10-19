@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { OpenInItems } from "@/components/OpenIn";
 import { StatusDot } from "@/components/StatusDot";
 import { Deck, errorMessage, type AgentInfo, type Info, type Project } from "@/lib/api";
 import { dotFor, sortSessions, timeAgo } from "@/lib/format";
@@ -157,6 +158,8 @@ export function Sidebar({ projects, sessions, agents, selected, onSelect, onAddP
                     <DropdownMenuGroup>
                       <DropdownMenuLabel className="font-normal break-all">{p.path.replace(/^\/Users\/[^/]+/, "~")}</DropdownMenuLabel>
                     </DropdownMenuGroup>
+                    <DropdownMenuSeparator />
+                    <OpenInItems projectId={p.id} />
                     <DropdownMenuSeparator />
                     <DropdownMenuItem variant="destructive" onClick={() => setRemoving(p)}>
                       Remove project

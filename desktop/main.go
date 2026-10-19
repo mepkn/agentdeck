@@ -107,6 +107,11 @@ func main() {
 		},
 		BackgroundColour: application.NewRGB(14, 14, 17),
 		URL:              "/",
+		EnableFileDrop:   true,
+	})
+	// The composer is the drop target; it adds the paths to the message.
+	window.OnWindowEvent(events.Common.WindowFilesDropped, func(e *application.WindowEvent) {
+		app.Event.Emit("files:dropped", e.Context().DroppedFiles())
 	})
 	window.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		window.Hide()

@@ -56,6 +56,20 @@ export function Key(id: string, key: string): $CancellablePromise<void> {
 }
 
 /**
+ * OpenApps lists which of those apps are installed on this Mac.
+ */
+export function OpenApps(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(3869362976);
+}
+
+/**
+ * OpenIn opens a project's folder in Finder, Terminal or Zed.
+ */
+export function OpenIn(projectID: string, app: string): $CancellablePromise<void> {
+    return $Call.ByID(82739607, projectID, app);
+}
+
+/**
  * PickFolder asks for a folder and adds it as a project. An empty ID means
  * the dialog was cancelled.
  */

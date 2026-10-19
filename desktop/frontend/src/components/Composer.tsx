@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowUpIcon, SquareIcon } from "lucide-react";
+import { Events } from "@wailsio/runtime";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Deck, errorMessage } from "@/lib/api";
@@ -7,7 +8,15 @@ import { Deck, errorMessage } from "@/lib/api";
 // Drafts survive switching sessions.
 const drafts = new Map<string, string>();
 
-export function Composer({ sessionId, working, actions }: { sessionId: string; working: boolean; actions?: ReactNode }) {
+export function Composer({
+  sessionId,
+  working,
+  actions,
+}: {
+  sessionId: string;
+  working: boolean;
+  actions?: ReactNode;
+}) {
   const [text, setText] = useState(() => drafts.get(sessionId) ?? "");
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -22,6 +31,19 @@ export function Composer({ sessionId, working, actions }: { sessionId: string; w
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 240)}px`;
   }, [text]);
+
+  // Files dropped on the composer are added as paths; the agent reads them from disk.
+  useEffect(() => {
+    return Events.On("files:dropped", (ev) => {
+      const paths = (ev.data as string[]).map((p) => (/\s/.test(p) ? `"${p}"` : p)).join(" ");
+      setText((t) => {
+        const v = t && !/\s$/.test(t) ? `${t} ${paths} ` : `${t}${paths} `;
+        drafts.set(sessionId, v);
+        return v;
+      });
+      ref.current?.focus();
+    });
+  }, [sessionId]);
 
   function update(v: string) {
     setText(v);
@@ -41,12 +63,15 @@ export function Composer({ sessionId, working, actions }: { sessionId: string; w
   }
 
   return (
-    <div className="flex items-end gap-2 rounded-xl border border-input bg-card p-2 focus-within:border-ring/60">
+    <div
+      data-file-drop-target
+      className="flex items-end gap-2 rounded-xl border border-input bg-card p-2 focus-within:border-ring/60 [&.file-drop-target-active]:border-dashed [&.file-drop-target-active]:border-ring"
+    >
       <textarea
         ref={ref}
         rows={1}
         value={text}
-        placeholder="Message the agent"
+        placeholder="Message the agent, or drop files here"
         onChange={(e) => update(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
