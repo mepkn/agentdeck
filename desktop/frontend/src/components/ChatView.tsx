@@ -1,12 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Events } from "@wailsio/runtime";
+import { Browser, Events } from "@wailsio/runtime";
+import type { Components } from "react-markdown";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CheckIcon, ChevronRightIcon, LoaderIcon, XIcon } from "lucide-react";
 import { Deck, type Item } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-export function ChatView({ sessionId, working }: { sessionId: string; working: boolean }) {
+// Summary mode leaves out tool calls, showing only the conversation.
+export function ChatView({ sessionId, working, summary }: { sessionId: string; working: boolean; summary: boolean }) {
   const [items, setItems] = useState<Item[]>([]);
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -45,9 +47,13 @@ export function ChatView({ sessionId, working }: { sessionId: string; working: b
         {items.length === 0 && !working && (
           <p className="py-16 text-center text-sm text-muted-foreground">Send a message to start.</p>
         )}
-        {items.map((it) => (
-          <ChatItem key={it.id} item={it} />
-        ))}
+        {turns(items.filter((it) => !(summary && it.kind === "tool"))).map((turn) =>
+          turn[0].kind === "user" ? (
+            <UserBubble key={turn[0].id} item={turn[0]} />
+          ) : (
+            <AgentTurn key={turn[0].id} items={turn} />
+          ),
+        )}
         {working && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <LoaderIcon className="size-3.5 animate-spin" /> Working…
@@ -73,18 +79,52 @@ function upsert(list: Item[], changed: Item[]): Item[] {
   return out;
 }
 
-function ChatItem({ item }: { item: Item }) {
-  if (item.kind === "user") {
-    return (
-      <div className="selectable ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-secondary px-4 py-2.5 text-sm whitespace-pre-wrap">
-        {item.text}
-      </div>
-    );
+// Groups the agent's consecutive replies and tool calls into one turn, so each reply is one bubble.
+function turns(items: Item[]): Item[][] {
+  const out: Item[][] = [];
+  for (const it of items) {
+    const last = out.at(-1);
+    if (it.kind !== "user" && last && last[0].kind !== "user") last.push(it);
+    else out.push([it]);
   }
-  if (item.kind === "tool" && item.tool) return <ToolRow item={item} />;
+  return out;
+}
+
+function UserBubble({ item }: { item: Item }) {
   return (
-    <div className="selectable prose-chat text-sm">
-      <Markdown remarkPlugins={[remarkGfm]}>{item.text ?? ""}</Markdown>
+    <div className="selectable ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-secondary px-4 py-2.5 text-sm whitespace-pre-wrap">
+      {item.text}
+    </div>
+  );
+}
+
+// Links open in the default browser, not inside the app's window.
+const markdownParts: Components = {
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      onClick={(e) => {
+        e.preventDefault();
+        if (href) void Browser.OpenURL(href);
+      }}
+    >
+      {children}
+    </a>
+  ),
+};
+
+function AgentTurn({ items }: { items: Item[] }) {
+  return (
+    <div className="mr-auto flex w-fit max-w-[85%] flex-col gap-3 rounded-2xl rounded-bl-sm bg-muted px-4 py-2.5">
+      {items.map((it) =>
+        it.kind === "tool" && it.tool ? (
+          <ToolRow key={it.id} item={it} />
+        ) : (
+          <div key={it.id} className="selectable prose-chat text-sm">
+            <Markdown remarkPlugins={[remarkGfm]} components={markdownParts}>{it.text ?? ""}</Markdown>
+          </div>
+        ),
+      )}
     </div>
   );
 }

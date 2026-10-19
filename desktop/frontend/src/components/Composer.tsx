@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowUpIcon, SquareIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Deck, errorMessage } from "@/lib/api";
 // Drafts survive switching sessions.
 const drafts = new Map<string, string>();
 
-export function Composer({ sessionId, working }: { sessionId: string; working: boolean }) {
+export function Composer({ sessionId, working, actions }: { sessionId: string; working: boolean; actions?: ReactNode }) {
   const [text, setText] = useState(() => drafts.get(sessionId) ?? "");
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -56,6 +56,7 @@ export function Composer({ sessionId, working }: { sessionId: string; working: b
         }}
         className="max-h-60 min-h-8 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
       />
+      {actions}
       {working && (
         <Button
           variant="secondary"

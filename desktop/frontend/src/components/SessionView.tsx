@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { MessageSquareIcon, MoonIcon, PlayIcon, SquareTerminalIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { ChatControls } from "@/components/ChatControls";
+import { ChatControls, ControlsToggle } from "@/components/ChatControls";
 import { ChatView } from "@/components/ChatView";
 import { Composer } from "@/components/Composer";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -10,6 +10,7 @@ import { PromptCard } from "@/components/PromptCard";
 import { StatusDot } from "@/components/StatusDot";
 import { TerminalView } from "@/components/TerminalView";
 import { Deck, errorMessage, type AgentInfo, type Info, type Project } from "@/lib/api";
+import { useStoredToggle } from "@/hooks/use-stored-toggle";
 import { dotFor, statusLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,8 @@ export function SessionView({ session, project, agent }: { session: Info; projec
   const agentName = agent?.name ?? session.agent;
   const [view, setView] = useState<View>("chat");
   const [closing, setClosing] = useState(false);
+  const [controlsShown, toggleControls] = useStoredToggle("agentdeck.controlsShown", true);
+  const [summary, toggleSummary] = useStoredToggle("agentdeck.summary", false);
   const asleep = session.status === "asleep";
   const working = session.status === "working" || session.status === "starting";
   const dot = dotFor(session);
@@ -60,13 +63,13 @@ export function SessionView({ session, project, agent }: { session: Info; projec
               type="button"
               onClick={() => setView(v)}
               title={`${v === "chat" ? "Chat" : "Terminal"} (⌘J)`}
+              aria-label={v === "chat" ? "Chat" : "Terminal"}
               className={cn(
-                "flex h-6 items-center gap-1.5 rounded-md px-2.5 text-xs text-muted-foreground",
+                "flex h-6 items-center rounded-md px-2 text-muted-foreground",
                 view === v && "bg-background text-foreground shadow-sm",
               )}
             >
               {v === "chat" ? <MessageSquareIcon className="size-3.5" /> : <SquareTerminalIcon className="size-3.5" />}
-              {v === "chat" ? "Chat" : "Terminal"}
             </button>
           ))}
         </div>
@@ -88,7 +91,7 @@ export function SessionView({ session, project, agent }: { session: Info; projec
 
       <div className="relative min-h-0 flex-1">
         <div className={cn("absolute inset-0", view !== "chat" && "invisible")}>
-          <ChatView sessionId={session.id} working={working && !session.prompt} />
+          <ChatView sessionId={session.id} working={working && !session.prompt} summary={summary} />
         </div>
         {!asleep && (
           <div className={cn("absolute inset-0", view !== "terminal" && "invisible")}>
@@ -103,7 +106,7 @@ export function SessionView({ session, project, agent }: { session: Info; projec
       </div>
 
       {view === "chat" && (
-        <div className="mx-auto w-full max-w-3xl shrink-0 space-y-3 px-6 pb-3">
+        <div className="mx-auto w-full max-w-3xl shrink-0 space-y-3 px-6 pt-1 pb-3">
           {session.prompt && !asleep && <PromptCard sessionId={session.id} prompt={session.prompt} />}
           {asleep ? (
             <div className="flex items-center justify-between rounded-xl border border-dashed p-3 pl-4 text-sm text-muted-foreground">
@@ -113,9 +116,16 @@ export function SessionView({ session, project, agent }: { session: Info; projec
               </Button>
             </div>
           ) : (
-            <div className="space-y-1">
-              <Composer key={session.id} sessionId={session.id} working={working} />
-              <ChatControls session={session} agent={agent} />
+            <div className="space-y-2">
+              {controlsShown && (
+                <ChatControls session={session} agent={agent} summary={summary} onSummary={toggleSummary} />
+              )}
+              <Composer
+                key={session.id}
+                sessionId={session.id}
+                working={working}
+                actions={<ControlsToggle shown={controlsShown} onToggle={toggleControls} />}
+              />
             </div>
           )}
         </div>

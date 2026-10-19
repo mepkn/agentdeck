@@ -409,13 +409,14 @@ func (p *claudeParser) Feed(line []byte) []Item {
 	return out
 }
 
-// Slash commands, their output and interrupt markers are logged as user
-// text; the chat view leaves out everything but what was typed.
+// Slash commands, their output, background task notices and interrupt
+// markers are logged as user text; the chat view leaves out everything but what was typed.
 func hiddenUserText(s string) bool {
 	s = strings.TrimSpace(s)
 	return s == "" ||
 		strings.HasPrefix(s, "<local-command-") ||
 		strings.HasPrefix(s, "<system-reminder>") ||
+		strings.HasPrefix(s, "<task-notification>") ||
 		strings.HasPrefix(s, "Caveat:") ||
 		strings.HasPrefix(s, "[Request interrupted") ||
 		// Typed by agentdeck to open the model list.

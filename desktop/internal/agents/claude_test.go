@@ -8,6 +8,7 @@ func TestClaudeParser(t *testing.T) {
 		`{"type":"user","uuid":"u1","message":{"content":"fix the bug"}}`,
 		`{"type":"user","uuid":"m1","isMeta":true,"message":{"content":"hidden"}}`,
 		`{"type":"user","uuid":"c1","message":{"content":"<command-name>/model</command-name>\n<command-args>opus</command-args>"}}`,
+		`{"type":"user","uuid":"n1","message":{"content":"<task-notification>\n<task-id>b1</task-id>\n<status>stopped</status>\n</task-notification>"}}`,
 		`{"type":"assistant","uuid":"a1","message":{"content":[{"type":"thinking","thinking":"..."}]}}`,
 		`{"type":"assistant","uuid":"a2","message":{"content":[{"type":"text","text":"Looking."}]}}`,
 		`{"type":"assistant","uuid":"a3","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"ls -la\nmore","description":"List"}}]}}`,

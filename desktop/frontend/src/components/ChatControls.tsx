@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { ChevronDownIcon, LoaderIcon } from "lucide-react";
+import { ChevronDownIcon, EllipsisIcon, ListCollapseIcon, LoaderIcon } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,13 +17,40 @@ import { cn } from "@/lib/utils";
 
 type Choice = { value: string; label: string };
 
-// Model, permission mode and context use, under the composer.
-export function ChatControls({ session, agent }: { session: Info; agent?: AgentInfo }) {
+// The ⋯ button in the composer that hides or shows the controls.
+export function ControlsToggle({ shown, onToggle }: { shown: boolean; onToggle: () => void }) {
+  const label = shown ? "Hide session details" : "Show model, effort, mode and context";
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={onToggle}
+      aria-pressed={shown}
+      aria-label={label}
+      title={label}
+      className="text-muted-foreground"
+    >
+      <EllipsisIcon />
+    </Button>
+  );
+}
+
+// Model, effort, permission mode, summary mode and context use, above the composer.
+export function ChatControls({
+  session,
+  agent,
+  summary,
+  onSummary,
+}: {
+  session: Info;
+  agent?: AgentInfo;
+  summary: boolean;
+  onSummary: () => void;
+}) {
   const models = agent?.models ?? [];
   const modes = agent?.modes ?? [];
   const efforts = agent?.efforts ?? [];
   const meta = session.meta;
-  if (models.length === 0 && modes.length === 0) return null;
 
   const model = models.find((m) => m.label === meta.model);
   const mode = modes.find((m) => m.value === meta.mode);
@@ -56,10 +84,25 @@ export function ChatControls({ session, agent }: { session: Info; agent?: AgentI
           choices={modes}
           value={mode?.value}
           label={mode?.label ?? "Mode"}
-          className={cn(mode?.value === "plan" && "text-sky-400", mode?.value === "bypassPermissions" && "text-destructive")}
+          className={cn(
+            mode?.value === "plan" && "text-sky-400",
+            mode?.value === "bypassPermissions" && "text-destructive",
+          )}
           onPick={(v) => Deck.SetMode(session.id, v)}
         />
       )}
+      <button
+        type="button"
+        onClick={onSummary}
+        aria-pressed={summary}
+        title={summary ? "Summary: tool calls hidden. Click to show them." : "Hide tool calls (summary)"}
+        className={cn(
+          "flex h-7 items-center gap-1 rounded-md px-2 hover:bg-muted hover:text-foreground",
+          summary && "bg-muted text-foreground",
+        )}
+      >
+        <ListCollapseIcon className="size-3.5" /> Summary
+      </button>
       <ContextMeter used={meta.contextUsed} size={meta.contextWindow} />
     </div>
   );
