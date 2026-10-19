@@ -1,0 +1,160 @@
+# Builds every app in this repo and attaches them all to one GitHub Release
+# (tag v<run number>, marked latest), so these links always serve the newest
+# build (the links on dash):
+#   https://github.com/mepkn/agentdeck/releases/latest/download/agentdeck-macos.zip
+#   https://github.com/mepkn/agentdeck/releases/latest/download/agentdeck.apk
+# Started by hand: Actions tab → Release → Run workflow, or
+# `gh workflow run release.yml`.
+#
+# Android: `eas build --local` on the runner, so it uses no EAS cloud build
+# quota; EAS still supplies the signing key and the preview environment's
+# variables. Needs the EXPO_TOKEN repository secret.
+#
+# macOS: unsigned universal build (Apple silicon and Intel). On first launch,
+# right-click the app → Open (or `xattr -dr com.apple.quarantine agentdeck.app`).
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  # write: to create the release.
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        # The Expo app.
+        working-directory: mobile
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      # 64-bit ARM only (every current phone): a quarter of the native build,
+      # so it fits the runner's disk and finishes sooner.
+      ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
+    steps:
+      - name: Free disk space
+        # The runner's ~14 GB free runs out during the Gradle build. These
+        # preinstalled toolchains aren't used here.
+        # Runs before checkout, so mobile/ doesn't exist yet.
+        working-directory: .
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/local/lib/node_modules /usr/share/swift
+          sudo docker image prune --all --force >/dev/null || true
+          df -h /
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Cache Gradle
+        # Caches ~/.gradle (dependencies, wrapper, build cache) between runs;
+        # saved only from main. The first run fills it.
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Gradle settings
+          # The default 2 GB heap runs out while merging dex files. A public
+          # repo's runner has 4 cores and 16 GB (a private one 2 and 7: use 4g
+          # there). The build cache reuses task outputs from the last run.
+        run: |
+          mkdir -p ~/.gradle
+          cat >> ~/.gradle/gradle.properties <<'PROPS'
+          org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g
+          org.gradle.parallel=true
+          org.gradle.caching=true
+          PROPS
+
+      - name: Build APK
+        run: |
+          mkdir -p dist
+          npx --yes eas-cli@latest build --platform android --profile preview \
+            --local --non-interactive --output "dist/agentdeck.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: mobile/dist/agentdeck.apk
+          retention-days: 90
+          if-no-files-found: error
+
+  macos:
+    # Apple silicon runner; the universal build adds an Intel binary.
+    runs-on: macos-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: desktop/go.mod
+          cache-dependency-path: desktop/go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: desktop/frontend/package-lock.json
+
+      - name: Install Wails CLI
+        # Same version as go.mod.
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.30
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Build app
+        run: |
+          wails3 task darwin:package:universal
+          mkdir -p dist
+          ditto -c -k --keepParent "bin/agentdeck.app" "dist/agentdeck-macos.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: desktop/dist/agentdeck-macos.zip
+          retention-days: 90
+          if-no-files-found: error
+
+  publish:
+    # One release with every app, so each releases/latest/download link works.
+    # The files keep fixed names so those links never change.
+    needs: [android, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          short="${GITHUB_SHA::7}"
+          gh release create "v${{ github.run_number }}" dist/* \
+            -R "${{ github.repository }}" --target "$GITHUB_SHA" --latest \
+            --title "v${{ github.run_number }} ($short)" \
+            --notes "Built from $short by run ${{ github.run_id }}. Android preview APK (arm64). Unsigned macOS app (Apple silicon and Intel); first launch: right-click it → Open."
