@@ -3,3 +3,13 @@ node_modules
 .env.local
 .env.prod.local
 /relay/relay
+
+# Mobile
+.expo/
+expo-env.d.ts
+/mobile/dist/
+/mobile/ios
+/mobile/android
+.eas-token
+# Firebase service account key (uploaded to EAS for push)
+*firebase-adminsdk*.json

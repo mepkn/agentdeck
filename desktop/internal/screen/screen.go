@@ -30,13 +30,18 @@ const cursors = "❯›▶"
 
 var numbered = regexp.MustCompile(`^\d+[.)]\s+`)
 
+// Claude Code's spinner while it works: "✻ Deciphering… (7m 4s · ↓ 12.3k tokens)".
+// The footer's "esc to interrupt" is replaced by "· 1 shell" while a
+// background shell runs, so the spinner is the steadier sign.
+var spinner = regexp.MustCompile(`^\S\s+\S+…\s+\(\d`)
+
 // Read looks at the screen lines, top to bottom.
 func Read(lines []string) State {
 	clean := make([]string, len(lines))
 	var st State
 	for i, l := range lines {
 		clean[i] = strip(l)
-		if strings.Contains(strings.ToLower(clean[i]), "to interrupt") {
+		if strings.Contains(strings.ToLower(clean[i]), "to interrupt") || spinner.MatchString(strings.TrimSpace(clean[i])) {
 			st.Working = true
 		}
 	}

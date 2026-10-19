@@ -42,6 +42,17 @@ func TestWorkingNoPrompt(t *testing.T) {
 	}
 }
 
+func TestWorkingSpinnerWithoutFooter(t *testing.T) {
+	st := Read([]string{"✻ Deciphering… (7m 4s · ↓ 12.3k tokens)", "", "❯ ", "▸▸ auto mode on · 1 shell"})
+	if !st.Working {
+		t.Errorf("state: %+v", st)
+	}
+	done := Read([]string{"✻ Baked for 23s · done 4:41 PM · 1 shell still running", "", "❯ "})
+	if done.Working {
+		t.Errorf("done line read as working: %+v", done)
+	}
+}
+
 func TestNumberedListInOutput(t *testing.T) {
 	// A numbered list starting at 2 is not a menu.
 	st := Read([]string{"Steps:", "2. build", "3. test"})

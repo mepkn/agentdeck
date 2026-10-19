@@ -1,0 +1,114 @@
+# Builds the preview APK on a GitHub runner, saves it as a workflow artifact
+# named after the commit (kept 90 days, visible only to signed-in GitHub
+# users) and attaches it to a new GitHub Release marked latest, so
+# https://github.com/mepkn/<repo>/releases/latest/download/<repo>.apk always
+# serves the newest build. This repo also publishes macOS releases, so only
+# the newest of the two is "latest"; dash links the releases page. Started
+# by hand: Actions tab → Android preview APK → Run workflow, or `gh workflow run android-preview.yml`.
+#
+# It runs `eas build --local`, so it uses no EAS cloud build quota; EAS still
+# supplies the signing key and the preview environment's variables. Needs the
+# EXPO_TOKEN repository secret.
+name: Android preview APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  # write: to create the release.
+  contents: write
+
+concurrency:
+  group: android-preview
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        # The Expo app.
+        working-directory: mobile
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      # 64-bit ARM only (every current phone): a quarter of the native build,
+      # so it fits the runner's disk and finishes sooner.
+      ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
+    steps:
+      - name: Free disk space
+        # The runner's ~14 GB free runs out during the Gradle build. These
+        # preinstalled toolchains aren't used here.
+        # Runs before checkout, so mobile/ doesn't exist yet.
+        working-directory: .
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/local/lib/node_modules /usr/share/swift
+          sudo docker image prune --all --force >/dev/null || true
+          df -h /
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Cache Gradle
+        # Caches ~/.gradle (dependencies, wrapper, build cache) between runs;
+        # saved only from main. The first run fills it.
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Gradle settings
+        # The default 2 GB heap runs out while merging dex files. A public
+        # repo's runner has 4 cores and 16 GB (a private one 2 and 7: use 4g
+        # there). The build cache reuses task outputs from the last run.
+        run: |
+          mkdir -p ~/.gradle
+          cat >> ~/.gradle/gradle.properties <<'PROPS'
+          org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g
+          org.gradle.parallel=true
+          org.gradle.caching=true
+          PROPS
+
+      - name: Build APK
+        id: build
+        run: |
+          short=$(git rev-parse --short HEAD)
+          out="dist/${{ github.event.repository.name }}-preview-$short.apk"
+          mkdir -p dist
+          npx --yes eas-cli@latest build --platform android --profile preview \
+            --local --non-interactive --output "$out"
+          echo "apk=$out" >> "$GITHUB_OUTPUT"
+          echo "short=$short" >> "$GITHUB_OUTPUT"
+
+      - name: Save APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.repository.name }}-preview-${{ steps.build.outputs.short }}
+          path: mobile/${{ steps.build.outputs.apk }}
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Publish release
+        # Tag android-<run number>, one release per build. The asset keeps a
+        # fixed name so the releases/latest/download link never changes.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          repo="${{ github.event.repository.name }}"
+          cp "${{ steps.build.outputs.apk }}" "dist/$repo.apk"
+          gh release create "android-${{ github.run_number }}" "dist/$repo.apk" \
+            --target "$GITHUB_SHA" --latest \
+            --title "Android preview ${{ github.run_number }} (${{ steps.build.outputs.short }})" \
+            --notes "Preview APK built from ${{ steps.build.outputs.short }} by run ${{ github.run_id }}."
