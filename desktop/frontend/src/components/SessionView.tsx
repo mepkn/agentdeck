@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
-import { MessageSquareIcon, MoonIcon, PlayIcon, SquareTerminalIcon, XIcon } from "lucide-react";
+import { MessageSquareIcon, PlayIcon, SquareTerminalIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ChatControls, ControlsToggle } from "@/components/ChatControls";
 import { ChatView } from "@/components/ChatView";
 import { Composer } from "@/components/Composer";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PromptCard } from "@/components/PromptCard";
 import { StatusDot } from "@/components/StatusDot";
 import { TerminalView } from "@/components/TerminalView";
@@ -19,7 +18,6 @@ type View = "chat" | "terminal";
 export function SessionView({ session, project, agent }: { session: Info; project?: Project; agent?: AgentInfo }) {
   const agentName = agent?.name ?? session.agent;
   const [view, setView] = useState<View>("chat");
-  const [closing, setClosing] = useState(false);
   const [controlsShown, toggleControls] = useStoredToggle("agentdeck.controlsShown", true);
   const [summary, toggleSummary] = useStoredToggle("agentdeck.summary", false);
   const asleep = session.status === "asleep";
@@ -48,7 +46,7 @@ export function SessionView({ session, project, agent }: { session: Info; projec
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col">
-      <header className="drag flex h-13 shrink-0 items-center gap-3 border-b px-4 group-data-[sidebar=hidden]/app:pl-31">
+      <header className="drag flex h-12 pt-1.5 shrink-0 items-center gap-3 border-b pr-4 pl-24 group-data-[sidebar=hidden]/app:pr-12">
         <StatusDot dot={dot} />
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-sm font-medium">{session.title || "New session"}</h1>
@@ -72,20 +70,6 @@ export function SessionView({ session, project, agent }: { session: Info; projec
               {v === "chat" ? <MessageSquareIcon className="size-3.5" /> : <SquareTerminalIcon className="size-3.5" />}
             </button>
           ))}
-        </div>
-        <div className="no-drag flex items-center gap-1">
-          {asleep ? (
-            <Button variant="ghost" size="icon-sm" title="Wake" aria-label="Wake" onClick={() => run(() => Deck.Wake(session.id), "Could not wake the session.")}>
-              <PlayIcon />
-            </Button>
-          ) : (
-            <Button variant="ghost" size="icon-sm" title="Sleep (stop the agent, keep the session)" aria-label="Sleep" onClick={() => run(() => Deck.Sleep(session.id), "Could not stop the agent.")}>
-              <MoonIcon />
-            </Button>
-          )}
-          <Button variant="ghost" size="icon-sm" title="Close session" aria-label="Close session" onClick={() => setClosing(true)}>
-            <XIcon />
-          </Button>
         </div>
       </header>
 
@@ -131,14 +115,6 @@ export function SessionView({ session, project, agent }: { session: Info; projec
         </div>
       )}
 
-      <ConfirmDialog
-        open={closing}
-        onOpenChange={setClosing}
-        title="Close this session?"
-        description="The agent is stopped and the session leaves agentdeck. Its history stays in the agent's own files."
-        confirmLabel="Close"
-        onConfirm={() => Deck.Close(session.id)}
-      />
     </div>
   );
 }

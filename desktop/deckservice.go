@@ -60,3 +60,6 @@ func (d *DeckService) Resize(id string, cols, rows int) error {
 }
 
 func (d *DeckService) Snapshot(id string) (sessions.Snapshot, error) { return d.m.Snapshot(id) }
+
+// ClaudeUsage returns the Claude account's 5-hour and weekly limits.
+func (d *DeckService) ClaudeUsage() (agents.Usage, error) { return agents.ClaudeUsage() }

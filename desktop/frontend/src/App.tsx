@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FolderPlusIcon, PanelLeftIcon } from "lucide-react";
+import { FolderPlusIcon, PanelRightIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
@@ -33,11 +33,11 @@ export default function App() {
   }
 
   return (
-    // With the sidebar hidden, headers leave room for the traffic lights and the toggle.
+    // The sidebar is on the right; with it hidden, headers leave room for the toggle.
     <div className="group/app flex h-full" data-sidebar={sidebarShown ? "shown" : "hidden"}>
-      {/* Shown sidebar has its own hide button; once hidden, this one sits after the traffic lights. */}
+      {/* Shown sidebar has its own hide button; once hidden, this one sits at the top right. */}
       {!sidebarShown && (
-        <div className="fixed top-0 left-21 z-10 flex h-13 items-center">
+        <div className="fixed top-0 right-2 z-10 flex h-12 pt-1.5 items-center">
           <Button
             variant="ghost"
             size="icon-sm"
@@ -46,21 +46,9 @@ export default function App() {
             title="Show sidebar"
             onClick={toggleSidebar}
           >
-            <PanelLeftIcon />
+            <PanelRightIcon />
           </Button>
         </div>
-      )}
-      {sidebarShown && (
-        <Sidebar
-          projects={projects}
-          sessions={Object.values(sessions)}
-          agents={agents}
-          selected={session ? selected : null}
-          onSelect={setSelected}
-          onAddProject={addProject}
-          onProjectRemoved={reloadProjects}
-          onHide={toggleSidebar}
-        />
       )}
       {session ? (
         <SessionView
@@ -71,7 +59,7 @@ export default function App() {
         />
       ) : (
         <main className="flex flex-1 flex-col">
-          <div className="drag h-13 shrink-0 group-data-[sidebar=hidden]/app:pl-31" />
+          <div className="drag h-12 pt-1.5 shrink-0" />
           {loaded && (
             <div className="grid flex-1 place-items-center p-8 text-center">
               {projects.length === 0 ? (
@@ -89,6 +77,18 @@ export default function App() {
             </div>
           )}
         </main>
+      )}
+      {sidebarShown && (
+        <Sidebar
+          projects={projects}
+          sessions={Object.values(sessions)}
+          agents={agents}
+          selected={session ? selected : null}
+          onSelect={setSelected}
+          onAddProject={addProject}
+          onProjectRemoved={reloadProjects}
+          onHide={toggleSidebar}
+        />
       )}
       <Toaster position="bottom-right" />
     </div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRightIcon, FolderPlusIcon, MoreHorizontalIcon, PanelLeftIcon, PlusIcon } from "lucide-react";
+import { ChevronRightIcon, FolderPlusIcon, MoonIcon, MoreHorizontalIcon, PanelRightIcon, PlayIcon, PlusIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +40,7 @@ type Props = {
 
 export function Sidebar({ projects, sessions, agents, selected, onSelect, onAddProject, onProjectRemoved, onHide }: Props) {
   const [removing, setRemoving] = useState<Project | null>(null);
+  const [closing, setClosing] = useState<Info | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
   function toggle(id: string) {
     const next = new Set(collapsed);
@@ -53,6 +54,14 @@ export function Sidebar({ projects, sessions, agents, selected, onSelect, onAddP
   }
   const agentName = (id: string) => agents.find((a) => a.id === id)?.name ?? id;
 
+  async function run(fn: () => Promise<unknown>, failed: string) {
+    try {
+      await fn();
+    } catch (e) {
+      toast.error(errorMessage(e, failed));
+    }
+  }
+
   async function start(projectId: string, agent: string) {
     try {
       const s = await Deck.Start(projectId, agent);
@@ -64,17 +73,17 @@ export function Sidebar({ projects, sessions, agents, selected, onSelect, onAddP
   }
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-      {/* Room for the macOS traffic lights; drags the window. */}
-      <div className="drag flex h-13 shrink-0 items-center justify-end px-2">
+    <aside className="flex h-full w-64 shrink-0 flex-col border-l border-sidebar-border bg-sidebar text-sidebar-foreground">
+      {/* Drags the window. */}
+      <div className="drag flex h-12 pt-1.5 shrink-0 items-center border-b px-2">
         <Button variant="ghost" size="icon-sm" className="no-drag" aria-label="Add project" title="Add project" onClick={onAddProject}>
           <FolderPlusIcon />
         </Button>
         <Button variant="ghost" size="icon-sm" className="no-drag" aria-label="Hide sidebar" title="Hide sidebar" onClick={onHide}>
-          <PanelLeftIcon />
+          <PanelRightIcon />
         </Button>
       </div>
-      <nav className="flex-1 overflow-y-auto px-2 pb-4">
+      <nav className="flex-1 overflow-y-auto px-2 pt-2 pb-4">
         {projects.length === 0 && (
           <p className="px-2 py-6 text-sm text-muted-foreground">Add a project folder to start an agent in it.</p>
         )}
@@ -95,7 +104,12 @@ export function Sidebar({ projects, sessions, agents, selected, onSelect, onAddP
                   <ChevronRightIcon className={cn("size-3 shrink-0 transition-transform", !isCollapsed && "rotate-90")} />
                   <h2 className="truncate">{p.name}</h2>
                   {isCollapsed && list.length > 0 && (
-                    <span className={cn("ml-auto shrink-0 tabular-nums", waiting > 0 && "text-status-waiting")}>
+                    <span
+                      className={cn(
+                        "ml-auto shrink-0 tabular-nums",
+                        waiting > 0 ? "text-status-waiting" : "invisible group-hover:visible",
+                      )}
+                    >
                       {waiting > 0 ? `${waiting} waiting` : list.length}
                     </span>
                   )}
@@ -139,9 +153,9 @@ export function Sidebar({ projects, sessions, agents, selected, onSelect, onAddP
                   >
                     <MoreHorizontalIcon />
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
+                  <DropdownMenuContent align="start" className="w-auto max-w-60">
                     <DropdownMenuGroup>
-                      <DropdownMenuLabel className="max-w-64 truncate font-normal">{p.path}</DropdownMenuLabel>
+                      <DropdownMenuLabel className="font-normal break-all">{p.path.replace(/^\/Users\/[^/]+/, "~")}</DropdownMenuLabel>
                     </DropdownMenuGroup>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem variant="destructive" onClick={() => setRemoving(p)}>
@@ -152,7 +166,7 @@ export function Sidebar({ projects, sessions, agents, selected, onSelect, onAddP
               </div>
               <ul className={cn("mt-0.5 space-y-px", isCollapsed && "hidden")}>
                 {list.map((s) => (
-                  <li key={s.id}>
+                  <li key={s.id} className="group/row relative">
                     <button
                       type="button"
                       onClick={() => onSelect(s.id)}
@@ -172,8 +186,40 @@ export function Sidebar({ projects, sessions, agents, selected, onSelect, onAddP
                       <span className={cn("min-w-0 flex-1 truncate", s.unread && "font-medium")}>
                         {s.title || "New session"}
                       </span>
-                      <span className="text-xs text-muted-foreground tabular-nums">{timeAgo(s.updatedAt)}</span>
+                      <span className="text-xs text-muted-foreground tabular-nums group-hover/row:invisible group-has-data-popup-open/row:invisible">
+                        {timeAgo(s.updatedAt)}
+                      </span>
                     </button>
+                    {/* Session actions sit over the time on hover. */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            className="absolute top-1/2 right-1 -translate-y-1/2 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
+                            aria-label={`${s.title || "Session"} options`}
+                          />
+                        }
+                      >
+                        <MoreHorizontalIcon />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-auto whitespace-nowrap">
+                        {s.status === "asleep" ? (
+                          <DropdownMenuItem onClick={() => run(() => Deck.Wake(s.id), "Could not wake the session.")}>
+                            <PlayIcon /> Wake
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={() => run(() => Deck.Sleep(s.id), "Could not stop the agent.")}>
+                            <MoonIcon /> Sleep
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem variant="destructive" onClick={() => setClosing(s)}>
+                          <XIcon /> Close session
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </li>
                 ))}
               </ul>
@@ -181,6 +227,16 @@ export function Sidebar({ projects, sessions, agents, selected, onSelect, onAddP
           );
         })}
       </nav>
+      <ConfirmDialog
+        open={closing !== null}
+        onOpenChange={(o) => !o && setClosing(null)}
+        title="Close this session?"
+        description="The agent is stopped and the session leaves agentdeck. Its history stays in the agent's own files."
+        confirmLabel="Close"
+        onConfirm={async () => {
+          if (closing) await Deck.Close(closing.id);
+        }}
+      />
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(o) => !o && setRemoving(null)}

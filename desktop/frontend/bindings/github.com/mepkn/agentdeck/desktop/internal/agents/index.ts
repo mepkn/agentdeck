@@ -5,6 +5,8 @@ export type {
     Choice,
     Info,
     Item,
+    Limit,
     Meta,
-    Tool
+    Tool,
+    Usage
 } from "./models.js";

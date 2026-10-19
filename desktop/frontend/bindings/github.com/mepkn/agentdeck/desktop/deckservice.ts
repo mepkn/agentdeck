@@ -28,6 +28,13 @@ export function Answer(id: string, n: number): $CancellablePromise<void> {
     return $Call.ByID(1169407770, id, n);
 }
 
+/**
+ * ClaudeUsage returns the Claude account's 5-hour and weekly limits.
+ */
+export function ClaudeUsage(): $CancellablePromise<agents$0.Usage> {
+    return $Call.ByID(1006913477);
+}
+
 export function Close(id: string): $CancellablePromise<void> {
     return $Call.ByID(1752566292, id);
 }

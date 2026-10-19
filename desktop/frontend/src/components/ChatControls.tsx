@@ -11,7 +11,8 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Deck, errorMessage, type AgentInfo, type Info } from "@/lib/api";
+import { useClaudeUsage } from "@/hooks/use-claude-usage";
+import { Deck, errorMessage, type AgentInfo, type Info, type Limit } from "@/lib/api";
 import { formatTokens } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +52,7 @@ export function ChatControls({
   const modes = agent?.modes ?? [];
   const efforts = agent?.efforts ?? [];
   const meta = session.meta;
+  const usage = useClaudeUsage(session.agent === "claude");
 
   const model = models.find((m) => m.label === meta.model);
   const mode = modes.find((m) => m.value === meta.mode);
@@ -103,7 +105,11 @@ export function ChatControls({
       >
         <ListCollapseIcon className="size-3.5" /> Summary
       </button>
-      <ContextMeter used={meta.contextUsed} size={meta.contextWindow} />
+      <div className="ml-auto flex items-center">
+        {usage?.fiveHour && <LimitMeter name="5h" limit={usage.fiveHour} />}
+        {usage?.sevenDay && <LimitMeter name="7d" limit={usage.sevenDay} />}
+        <ContextMeter used={meta.contextUsed} size={meta.contextWindow} />
+      </div>
     </div>
   );
 }
@@ -176,7 +182,7 @@ function ContextMeter({ used, size }: { used: number; size: number }) {
   const c = 2 * Math.PI * r;
   return (
     <div
-      className="ml-auto flex h-7 items-center gap-1.5 px-2 tabular-nums"
+      className="flex h-7 items-center gap-1.5 px-2 tabular-nums"
       title={`Context: ${used.toLocaleString()} of ${size.toLocaleString()} tokens`}
     >
       <svg viewBox="0 0 16 16" className="size-3.5 -rotate-90">
@@ -195,5 +201,21 @@ function ContextMeter({ used, size }: { used: number; size: number }) {
       </svg>
       {Math.round(pct)}% · {formatTokens(used)} / {formatTokens(size)}
     </div>
+  );
+}
+
+// One Claude plan limit, such as "5h: 21%", with its reset time on hover.
+function LimitMeter({ name, limit }: { name: string; limit: Limit }) {
+  const pct = Math.round(limit.percent);
+  const resets = limit.resetsAt
+    ? new Date(limit.resetsAt).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })
+    : "";
+  return (
+    <span
+      className={cn("flex h-7 items-center px-2 tabular-nums", pct >= 80 && "text-status-waiting")}
+      title={`${name === "5h" ? "5-hour" : "Weekly"} limit: ${pct}% used${resets ? `, resets ${resets}` : ""}`}
+    >
+      {name}: {pct}%
+    </span>
   );
 }

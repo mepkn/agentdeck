@@ -32,6 +32,14 @@ export interface Item {
 }
 
 /**
+ * Limit is one Claude plan limit: how much is used (0-100) and when it resets.
+ */
+export interface Limit {
+    "percent": number;
+    "resetsAt": string;
+}
+
+/**
  * Meta is what the chat window shows about a running session.
  */
 export interface Meta {
@@ -60,4 +68,12 @@ export interface Tool {
     "output"?: string;
     "isError"?: boolean;
     "done": boolean;
+}
+
+/**
+ * Usage holds the 5-hour and weekly limits of the signed-in Claude account.
+ */
+export interface Usage {
+    "fiveHour": Limit | null;
+    "sevenDay": Limit | null;
 }
