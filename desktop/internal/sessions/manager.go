@@ -413,20 +413,28 @@ func samePrompt(a, b *screen.Prompt) bool {
 	return true
 }
 
-// titleFrom names the session after its first message.
+// titleFrom names the session with the agent's own title, or until it has
+// one, after its first message.
 func (m *Manager) titleFrom(items []agents.Item, l *live) bool {
 	if len(items) > 0 {
 		l.s.UpdatedAt = time.Now().UnixMilli()
+	}
+	if p, ok := l.parser.(agents.TitleParser); ok && p.Title() != "" {
+		if t := shortTitle(p.Title()); t != l.s.Title {
+			l.s.Title = t
+			m.saveLocked(l, true)
+			return true
+		}
+		if len(items) > 0 {
+			m.saveLocked(l, false)
+		}
+		return false
 	}
 	// Slash commands don't make a title.
 	if l.s.Title == "" || strings.HasPrefix(l.s.Title, "/") {
 		for _, it := range items {
 			if it.Kind == "user" && !strings.HasPrefix(it.Text, "/") {
-				t := strings.Join(strings.Fields(it.Text), " ")
-				if r := []rune(t); len(r) > 60 {
-					t = string(r[:59]) + "…"
-				}
-				l.s.Title = t
+				l.s.Title = shortTitle(it.Text)
 				m.saveLocked(l, true)
 				return true
 			}
@@ -436,6 +444,14 @@ func (m *Manager) titleFrom(items []agents.Item, l *live) bool {
 		m.saveLocked(l, false)
 	}
 	return false
+}
+
+func shortTitle(s string) string {
+	t := strings.Join(strings.Fields(s), " ")
+	if r := []rune(t); len(r) > 60 {
+		t = string(r[:59]) + "…"
+	}
+	return t
 }
 
 // saveLocked persists the session, at most every 10s unless forced.

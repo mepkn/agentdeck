@@ -311,13 +311,23 @@ func (claude) LogPath(dir, id string) string {
 func (claude) NewParser() Parser { return &claudeParser{tools: map[string]*Item{}} }
 
 type claudeParser struct {
-	tools   map[string]*Item
-	context int64
+	tools       map[string]*Item
+	context     int64
+	aiTitle     string
+	customTitle string
 }
 
 // Context is the context use of the last reply, for when the status line
 // hasn't reported any yet (it doesn't after a resume).
 func (p *claudeParser) Context() int64 { return p.context }
+
+// Title is the name set with /rename, else the one Claude Code generated.
+func (p *claudeParser) Title() string {
+	if p.customTitle != "" {
+		return p.customTitle
+	}
+	return p.aiTitle
+}
 
 type claudeLine struct {
 	Type        string `json:"type"`
@@ -325,6 +335,8 @@ type claudeLine struct {
 	Timestamp   string `json:"timestamp"`
 	IsMeta      bool   `json:"isMeta"`
 	IsSidechain bool   `json:"isSidechain"`
+	AITitle     string `json:"aiTitle"`
+	CustomTitle string `json:"customTitle"`
 	Message     struct {
 		Content json.RawMessage `json:"content"`
 		Usage   *struct {
@@ -349,6 +361,14 @@ type claudeBlock struct {
 func (p *claudeParser) Feed(line []byte) []Item {
 	var l claudeLine
 	if json.Unmarshal(line, &l) != nil || l.IsMeta || l.IsSidechain {
+		return nil
+	}
+	switch l.Type {
+	case "ai-title":
+		p.aiTitle = strings.TrimSpace(l.AITitle)
+		return nil
+	case "custom-title":
+		p.customTitle = strings.TrimSpace(l.CustomTitle)
 		return nil
 	}
 	if l.Type != "user" && l.Type != "assistant" {

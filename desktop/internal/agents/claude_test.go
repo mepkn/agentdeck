@@ -102,3 +102,21 @@ func TestCleanUserTextPaste(t *testing.T) {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 }
+
+func TestClaudeTitle(t *testing.T) {
+	p := claude{}.NewParser().(TitleParser)
+	feed := func(l string) {
+		if items := p.(Parser).Feed([]byte(l)); len(items) != 0 {
+			t.Fatalf("title line made items: %+v", items)
+		}
+	}
+	feed(`{"type":"ai-title","aiTitle":"Pasted content rendering"}`)
+	if p.Title() != "Pasted content rendering" {
+		t.Errorf("ai title: %q", p.Title())
+	}
+	feed(`{"type":"custom-title","customTitle":"my name"}`)
+	feed(`{"type":"ai-title","aiTitle":"Newer ai title"}`)
+	if p.Title() != "my name" {
+		t.Errorf("custom title should win: %q", p.Title())
+	}
+}

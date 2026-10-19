@@ -60,6 +60,11 @@ type ContextParser interface {
 	Context() int64
 }
 
+// TitleParser is a Parser that also knows the title the agent gave the session.
+type TitleParser interface {
+	Title() string
+}
+
 // Term is a running session's terminal.
 type Term interface {
 	Lines() []string
