@@ -425,11 +425,14 @@ func hiddenUserText(s string) bool {
 
 var commandName = regexp.MustCompile(`(?s)<command-name>(.*?)</command-name>(?:.*?<command-args>(.*?)</command-args>)?`)
 
+// Claude Code logs a bracketed paste wrapped in <pasted_content id="..."> tags.
+var pastedTag = regexp.MustCompile(`[ \t]*</?pasted_content(?: id="[^"]*")?>[ \t]*\n?`)
+
 func cleanUserText(s string) string {
 	if m := commandName.FindStringSubmatch(s); m != nil {
 		return strings.TrimSpace(m[1] + " " + m[2])
 	}
-	return s
+	return strings.TrimSpace(pastedTag.ReplaceAllString(s, ""))
 }
 
 func toolSummary(name string, input json.RawMessage) string {

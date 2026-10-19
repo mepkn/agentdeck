@@ -95,3 +95,10 @@ func TestReadModelList(t *testing.T) {
 		t.Fatalf("rows %q", ml.rows)
 	}
 }
+
+func TestCleanUserTextPaste(t *testing.T) {
+	in := "\n\n<pasted_content id=\"a007\">\nit says:\n\nmacos\n</pasted_content id=\"a007\">\n"
+	if got, want := cleanUserText(in), "it says:\n\nmacos"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
