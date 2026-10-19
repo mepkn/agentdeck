@@ -1,0 +1,11 @@
+# On the VPS in ~/agentdeck-relay, managed from Dockhand. It keeps no state.
+services:
+  relay:
+    build: .
+    restart: unless-stopped
+    # Only Caddy (on the host) can reach it.
+    ports: ["127.0.0.1:8092:8092"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m

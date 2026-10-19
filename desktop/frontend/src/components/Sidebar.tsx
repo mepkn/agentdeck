@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { ChevronRightIcon, FolderPlusIcon, MoonIcon, MoreHorizontalIcon, PanelRightIcon, PlayIcon, PlusIcon, XIcon } from "lucide-react";
+import {
+  ChevronRightIcon,
+  FolderPlusIcon,
+  MoonIcon,
+  MoreHorizontalIcon,
+  PanelRightIcon,
+  PlayIcon,
+  PlusIcon,
+  SmartphoneIcon,
+  XIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +23,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { OpenInItems } from "@/components/OpenIn";
+import { PhoneDialog } from "@/components/PhoneDialog";
 import { StatusDot } from "@/components/StatusDot";
+import { useRemoteStatus } from "@/hooks/use-remote-status";
 import { Deck, errorMessage, type AgentInfo, type Info, type Project } from "@/lib/api";
 import { dotFor, sortSessions, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -39,10 +51,21 @@ type Props = {
   onHide: () => void;
 };
 
-export function Sidebar({ projects, sessions, agents, selected, onSelect, onAddProject, onProjectRemoved, onHide }: Props) {
+export function Sidebar({
+  projects,
+  sessions,
+  agents,
+  selected,
+  onSelect,
+  onAddProject,
+  onProjectRemoved,
+  onHide,
+}: Props) {
   const [removing, setRemoving] = useState<Project | null>(null);
   const [closing, setClosing] = useState<Info | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
+  const [phoneOpen, setPhoneOpen] = useState(false);
+  const remote = useRemoteStatus();
   function toggle(id: string) {
     const next = new Set(collapsed);
     if (!next.delete(id)) next.add(id);
@@ -77,13 +100,41 @@ export function Sidebar({ projects, sessions, agents, selected, onSelect, onAddP
     <aside className="flex h-full w-64 shrink-0 flex-col border-l border-sidebar-border bg-sidebar text-sidebar-foreground">
       {/* Drags the window. */}
       <div className="drag flex h-12 pt-1.5 shrink-0 items-center border-b px-2">
-        <Button variant="ghost" size="icon-sm" className="no-drag" aria-label="Add project" title="Add project" onClick={onAddProject}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="no-drag"
+          aria-label="Add project"
+          title="Add project"
+          onClick={onAddProject}
+        >
           <FolderPlusIcon />
         </Button>
-        <Button variant="ghost" size="icon-sm" className="no-drag" aria-label="Hide sidebar" title="Hide sidebar" onClick={onHide}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="no-drag"
+          aria-label="Hide sidebar"
+          title="Hide sidebar"
+          onClick={onHide}
+        >
           <PanelRightIcon />
         </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="no-drag relative ml-auto"
+          aria-label="Phone"
+          title="Phone"
+          onClick={() => setPhoneOpen(true)}
+        >
+          <SmartphoneIcon />
+          {remote?.phones?.some((p) => p.online) && (
+            <span className="absolute top-1 right-1 size-1.5 rounded-full bg-emerald-500" />
+          )}
+        </Button>
       </div>
+      <PhoneDialog open={phoneOpen} onOpenChange={setPhoneOpen} status={remote} />
       <nav className="flex-1 overflow-y-auto px-2 pt-2 pb-4">
         {projects.length === 0 && (
           <p className="px-2 py-6 text-sm text-muted-foreground">Add a project folder to start an agent in it.</p>
@@ -102,7 +153,9 @@ export function Sidebar({ projects, sessions, agents, selected, onSelect, onAddP
                   title={p.path}
                   className="flex h-full min-w-0 flex-1 items-center gap-1 rounded-md pl-1 text-xs font-medium text-muted-foreground hover:text-foreground"
                 >
-                  <ChevronRightIcon className={cn("size-3 shrink-0 transition-transform", !isCollapsed && "rotate-90")} />
+                  <ChevronRightIcon
+                    className={cn("size-3 shrink-0 transition-transform", !isCollapsed && "rotate-90")}
+                  />
                   <h2 className="truncate">{p.name}</h2>
                   {isCollapsed && list.length > 0 && (
                     <span
@@ -156,7 +209,9 @@ export function Sidebar({ projects, sessions, agents, selected, onSelect, onAddP
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-auto max-w-60">
                     <DropdownMenuGroup>
-                      <DropdownMenuLabel className="font-normal break-all">{p.path.replace(/^\/Users\/[^/]+/, "~")}</DropdownMenuLabel>
+                      <DropdownMenuLabel className="font-normal break-all">
+                        {p.path.replace(/^\/Users\/[^/]+/, "~")}
+                      </DropdownMenuLabel>
                     </DropdownMenuGroup>
                     <DropdownMenuSeparator />
                     <OpenInItems projectId={p.id} />

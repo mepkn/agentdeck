@@ -1,0 +1,12 @@
+# /etc/caddy/sites/agentdeck.caddy: the relay, instead of the standard SPA block.
+http://agentdeck.pknspace.com:8080 {
+	handle /relay {
+		reverse_proxy 127.0.0.1:8092
+	}
+	handle /health {
+		reverse_proxy 127.0.0.1:8092
+	}
+	handle {
+		respond "agentdeck relay" 404
+	}
+}

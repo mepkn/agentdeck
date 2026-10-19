@@ -7,11 +7,15 @@ import type { Events } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import type * as remote$0 from "../../../../mepkn/agentdeck/desktop/internal/remote/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import type * as sessions$0 from "../../../../mepkn/agentdeck/desktop/internal/sessions/models.js";
 
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
+            "remote:changed": remote$0.Status;
             "session:changed": sessions$0.Info;
             "session:items": sessions$0.ItemsEvent;
             "session:output": sessions$0.OutputEvent;

@@ -1,9 +1,14 @@
 package main
 
 import (
+	"encoding/base64"
+	"encoding/json"
+
 	"github.com/mepkn/agentdeck/desktop/internal/agents"
+	"github.com/mepkn/agentdeck/desktop/internal/remote"
 	"github.com/mepkn/agentdeck/desktop/internal/sessions"
 	"github.com/mepkn/agentdeck/desktop/internal/store"
+	"github.com/skip2/go-qrcode"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -11,6 +16,7 @@ import (
 type DeckService struct {
 	st *store.Store
 	m  *sessions.Manager
+	r  *remote.Remote
 }
 
 func (d *DeckService) Agents() []agents.Info { return agents.List() }
@@ -63,3 +69,19 @@ func (d *DeckService) Snapshot(id string) (sessions.Snapshot, error) { return d.
 
 // ClaudeUsage returns the Claude account's 5-hour and weekly limits.
 func (d *DeckService) ClaudeUsage() (agents.Usage, error) { return agents.ClaudeUsage() }
+
+func (d *DeckService) RemoteStatus() remote.Status { return d.r.Status() }
+
+// PairPhone starts pairing and returns the QR code to scan, as a PNG data URL.
+func (d *DeckService) PairPhone() (string, error) {
+	p := d.r.StartPairing()
+	b, _ := json.Marshal(p)
+	png, err := qrcode.Encode("agentdeck://pair?d="+base64.RawURLEncoding.EncodeToString(b), qrcode.Medium, 512)
+	if err != nil {
+		return "", err
+	}
+	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(png), nil
+}
+
+func (d *DeckService) StopPairing()                { d.r.StopPairing() }
+func (d *DeckService) RemovePhone(id string) error { return d.r.RemovePhone(id) }

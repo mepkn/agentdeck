@@ -4,7 +4,10 @@ import (
 	"embed"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 
+	"github.com/mepkn/agentdeck/desktop/internal/remote"
 	"github.com/mepkn/agentdeck/desktop/internal/sessions"
 	"github.com/mepkn/agentdeck/desktop/internal/shellenv"
 	"github.com/mepkn/agentdeck/desktop/internal/store"
@@ -23,27 +26,42 @@ func init() {
 	application.RegisterEvent[string]("session:removed")
 	application.RegisterEvent[sessions.ItemsEvent]("session:items")
 	application.RegisterEvent[sessions.OutputEvent]("session:output")
+	application.RegisterEvent[remote.Status]("remote:changed")
 }
 
-// emitter sends manager events to the frontend and keeps the tray current.
+// emitter sends manager events to the frontend and paired phones, and keeps
+// the tray current.
 type emitter struct {
 	app  *application.App
 	tray *application.SystemTray
 	m    *sessions.Manager
+	r    *remote.Remote
 	last int
 }
 
 func (e *emitter) SessionChanged(i sessions.Info) {
 	e.app.Event.Emit("session:changed", i)
+	if e.r != nil {
+		e.r.SessionChanged(i)
+	}
 	e.updateTray()
 }
 
 func (e *emitter) SessionRemoved(id string) {
 	e.app.Event.Emit("session:removed", id)
+	if e.r != nil {
+		e.r.SessionRemoved(id)
+	}
 	e.updateTray()
 }
 
-func (e *emitter) Items(ev sessions.ItemsEvent)   { e.app.Event.Emit("session:items", ev) }
+func (e *emitter) Items(ev sessions.ItemsEvent) {
+	e.app.Event.Emit("session:items", ev)
+	if e.r != nil {
+		e.r.Items(ev)
+	}
+}
+
 func (e *emitter) Output(ev sessions.OutputEvent) { e.app.Event.Emit("session:output", ev) }
 
 func (e *emitter) updateTray() {
@@ -76,12 +94,33 @@ func main() {
 	ev := &emitter{}
 	m := sessions.New(st, ev)
 	ev.m = m
+	deck := &DeckService{st: st, m: m}
+
+	rpath, err := remote.DefaultPath()
+	if err != nil {
+		log.Fatal(err)
+	}
+	relay := os.Getenv("AGENTDECK_RELAY")
+	if relay == "" {
+		relay = remote.DefaultRelay
+	}
+	host, _ := os.Hostname()
+	r, err := remote.New(rpath, relay, strings.TrimSuffix(host, ".local"), deck, func(s remote.Status) {
+		if ev.app != nil {
+			ev.app.Event.Emit("remote:changed", s)
+		}
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	deck.r = r
+	ev.r = r
 
 	app := application.New(application.Options{
 		Name:        "agentdeck",
 		Description: "Chat and terminal views for AI coding agent CLIs",
 		Services: []application.Service{
-			application.NewService(&DeckService{st: st, m: m}),
+			application.NewService(deck),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -90,7 +129,10 @@ func main() {
 			// Agents keep running with the window closed; quit from the tray.
 			ApplicationShouldTerminateAfterLastWindowClosed: false,
 		},
-		OnShutdown: m.Shutdown,
+		OnShutdown: func() {
+			r.Shutdown()
+			m.Shutdown()
+		},
 	})
 	ev.app = app
 

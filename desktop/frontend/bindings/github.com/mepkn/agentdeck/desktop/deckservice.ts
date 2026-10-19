@@ -15,6 +15,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as agents$0 from "./internal/agents/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as remote$0 from "./internal/remote/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as sessions$0 from "./internal/sessions/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -70,6 +73,13 @@ export function OpenIn(projectID: string, app: string): $CancellablePromise<void
 }
 
 /**
+ * PairPhone starts pairing and returns the QR code to scan, as a PNG data URL.
+ */
+export function PairPhone(): $CancellablePromise<string> {
+    return $Call.ByID(3756165200);
+}
+
+/**
  * PickFolder asks for a folder and adds it as a project. An empty ID means
  * the dialog was cancelled.
  */
@@ -79,6 +89,14 @@ export function PickFolder(): $CancellablePromise<store$0.Project> {
 
 export function Projects(): $CancellablePromise<store$0.Project[] | null> {
     return $Call.ByID(1023923570);
+}
+
+export function RemoteStatus(): $CancellablePromise<remote$0.Status> {
+    return $Call.ByID(4118119336);
+}
+
+export function RemovePhone(id: string): $CancellablePromise<void> {
+    return $Call.ByID(1413527636, id);
 }
 
 export function RemoveProject(id: string): $CancellablePromise<void> {
@@ -119,6 +137,10 @@ export function Snapshot(id: string): $CancellablePromise<sessions$0.Snapshot> {
 
 export function Start(projectID: string, agent: string): $CancellablePromise<sessions$0.Info> {
     return $Call.ByID(1152155180, projectID, agent);
+}
+
+export function StopPairing(): $CancellablePromise<void> {
+    return $Call.ByID(2527133276);
 }
 
 export function Wake(id: string): $CancellablePromise<void> {
