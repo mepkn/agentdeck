@@ -70,7 +70,7 @@ Set `AGENTDECK_RELAY` (e.g. `ws://localhost:8090/relay`) to point the Mac at a l
   holds `DEPLOY_HOST`, `DEPLOY_PORT` and `RELAY_DIR` (see `relay/.env.example`).
 - **Release**: `.github/workflows/release.yml` (run by hand: `gh workflow run release.yml`)
   builds the Android preview APK and the macOS app side by side and attaches both,
-  `agentdeck.apk` and `agentdeck-macos.zip`, to one GitHub Release (`v<n>`, marked latest), so
+  `agentdeck.apk` and `agentdeck-macos.zip`, to one GitHub Release (tagged with the short commit SHA, marked latest), so
   `releases/latest/download/<file>` works for each. The Android build needs the `EXPO_TOKEN` repo secret (from
   `mobile/.eas-token`). Push uses Firebase project `agent-deck-de70d`: `mobile/google-services.json`
   is committed; its FCM service account key is uploaded to EAS, not to the repo.
