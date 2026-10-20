@@ -5,6 +5,7 @@ package sessions
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -79,6 +80,9 @@ type live struct {
 	offset  int64
 	partial []byte
 	saved   time.Time
+	// When agentdeck last stopped the CLI; log writes after it came from
+	// somewhere else.
+	stopped time.Time
 }
 
 type Manager struct {
@@ -106,7 +110,7 @@ func New(st *store.Store, ev Events) *Manager {
 		if strings.HasPrefix(s.Title, "/") {
 			s.Title = "" // named after a slash command by an older version
 		}
-		m.live[s.ID] = &live{s: s, adapter: a, dir: p.Path, status: StatusAsleep}
+		m.live[s.ID] = &live{s: s, adapter: a, dir: p.Path, status: StatusAsleep, stopped: time.Now()}
 	}
 	return m
 }
@@ -159,6 +163,59 @@ func (m *Manager) Start(projectID, agentID string) (Info, error) {
 	m.ev.SessionChanged(info)
 	return info, err
 }
+
+// OpenPast returns the session for agentSessionID, adding it asleep (and
+// its folder as a project) if agentdeck doesn't have it yet.
+func (m *Manager) OpenPast(agentID, agentSessionID, dir, title string, updatedAt int64) (Info, error) {
+	a, ok := agents.Get(agentID)
+	if !ok {
+		return Info{}, errors.New("unknown agent")
+	}
+	m.mu.Lock()
+	for _, l := range m.live {
+		if l.s.Agent == agentID && l.s.AgentSessionID == agentSessionID {
+			info := l.info()
+			m.mu.Unlock()
+			return info, nil
+		}
+	}
+	m.mu.Unlock()
+	p, err := m.AddProject(dir)
+	if err != nil {
+		return Info{}, fmt.Errorf("%s: %w", dir, err)
+	}
+	s := store.Session{
+		ID: uuid.NewString(), ProjectID: p.ID, Agent: agentID, AgentSessionID: agentSessionID,
+		Title: title, CreatedAt: updatedAt, UpdatedAt: updatedAt,
+	}
+	if err := m.st.PutSession(s); err != nil {
+		return Info{}, err
+	}
+	l := &live{s: s, adapter: a, dir: p.Path, status: StatusAsleep}
+	m.mu.Lock()
+	m.live[s.ID] = l
+	info := l.info()
+	m.mu.Unlock()
+	m.ev.SessionChanged(info)
+	return info, nil
+}
+
+// ActiveElsewhere reports whether a sleeping session's log was written in
+// the last two minutes by something other than agentdeck, such as Claude
+// Code in a terminal; waking it then would run two CLIs on one log.
+func (m *Manager) ActiveElsewhere(id string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	l, err := m.get(id)
+	if err != nil || l.run != nil {
+		return false
+	}
+	fi, err := os.Stat(l.logPath())
+	return err == nil && fi.ModTime().After(l.stopped) && time.Since(fi.ModTime()) < RecentlyActive
+}
+
+// RecentlyActive is how long after its last log write a session counts as in use.
+const RecentlyActive = 2 * time.Minute
 
 func (m *Manager) Wake(id string) error {
 	m.mu.Lock()
@@ -216,6 +273,7 @@ func (m *Manager) watch(l *live, r *run) {
 			m.titleFrom(items, l)
 			if l.run == r {
 				l.run = nil
+				l.stopped = time.Now()
 				l.status = StatusAsleep
 				l.prompt = nil
 			}

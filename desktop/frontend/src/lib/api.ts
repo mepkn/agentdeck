@@ -17,3 +17,5 @@ export function errorMessage(e: unknown, fallback = "Something went wrong."): st
   if (typeof e === "string" && e) return e;
   return fallback;
 }
+export type { Match as PromptMatch } from "../../bindings/github.com/mepkn/agentdeck/desktop/internal/history/models";
+export type { Session as PastSession } from "../../bindings/github.com/mepkn/agentdeck/desktop/internal/history/models";

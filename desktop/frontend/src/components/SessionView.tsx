@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { MessageSquareIcon, PlayIcon, SquareTerminalIcon } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ChatControls, ControlsToggle } from "@/components/ChatControls";
 import { ChatView } from "@/components/ChatView";
@@ -9,10 +8,11 @@ import { LazygitButton, OpenInButton } from "@/components/OpenIn";
 import { PromptCard } from "@/components/PromptCard";
 import { StatusDot } from "@/components/StatusDot";
 import { TerminalView } from "@/components/TerminalView";
-import { Deck, errorMessage, type AgentInfo, type Info, type Project } from "@/lib/api";
+import { type AgentInfo, type Info, type Project } from "@/lib/api";
 import { useStoredToggle } from "@/hooks/use-stored-toggle";
 import { dotFor, statusLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { wake } from "@/lib/wake";
 
 type View = "chat" | "terminal";
 
@@ -36,14 +36,6 @@ export function SessionView({ session, project, agent }: { session: Info; projec
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, []);
-
-  async function run(fn: () => Promise<unknown>, failed: string) {
-    try {
-      await fn();
-    } catch (e) {
-      toast.error(errorMessage(e, failed));
-    }
-  }
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col">
@@ -98,7 +90,7 @@ export function SessionView({ session, project, agent }: { session: Info; projec
           {asleep ? (
             <div className="flex items-center justify-between rounded-xl border border-dashed p-3 pl-4 text-sm text-muted-foreground">
               Asleep. Wake to continue where it left off.
-              <Button size="sm" onClick={() => run(() => Deck.Wake(session.id), "Could not wake the session.")}>
+              <Button size="sm" onClick={() => wake(session.id)}>
                 <PlayIcon /> Wake
               </Button>
             </div>
@@ -117,7 +109,6 @@ export function SessionView({ session, project, agent }: { session: Info; projec
           )}
         </div>
       )}
-
     </div>
   );
 }

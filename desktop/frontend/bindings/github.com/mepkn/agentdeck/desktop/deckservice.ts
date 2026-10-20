@@ -15,6 +15,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as agents$0 from "./internal/agents/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as history$0 from "./internal/history/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as remote$0 from "./internal/remote/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -81,10 +84,25 @@ export function OpenLazygit(projectID: string, install: boolean): $CancellablePr
 }
 
 /**
+ * OpenPast adds a logged session to agentdeck, asleep, or returns the one
+ * already there.
+ */
+export function OpenPast(agent: string, agentSessionID: string, dir: string, title: string, updatedAt: number): $CancellablePromise<sessions$0.Info> {
+    return $Call.ByID(1675551812, agent, agentSessionID, dir, title, updatedAt);
+}
+
+/**
  * PairPhone starts pairing and returns the QR code to scan, as a PNG data URL.
  */
 export function PairPhone(): $CancellablePromise<string> {
     return $Call.ByID(3756165200);
+}
+
+/**
+ * PastSessions lists every logged Claude Code session, newest first.
+ */
+export function PastSessions(): $CancellablePromise<history$0.Session[] | null> {
+    return $Call.ByID(2903652977);
 }
 
 /**
@@ -113,6 +131,13 @@ export function RemoveProject(id: string): $CancellablePromise<void> {
 
 export function Resize(id: string, cols: number, rows: number): $CancellablePromise<void> {
     return $Call.ByID(3738183048, id, cols, rows);
+}
+
+/**
+ * SearchPrompts finds prompts typed in past Claude Code sessions.
+ */
+export function SearchPrompts(query: string): $CancellablePromise<history$0.Match[] | null> {
+    return $Call.ByID(1315600747, query);
 }
 
 export function Send(id: string, text: string): $CancellablePromise<void> {
@@ -151,6 +176,16 @@ export function StopPairing(): $CancellablePromise<void> {
     return $Call.ByID(2527133276);
 }
 
+/**
+ * Wake resumes a sleeping session, unless it looks open in another terminal.
+ */
 export function Wake(id: string): $CancellablePromise<void> {
     return $Call.ByID(691953728, id);
+}
+
+/**
+ * WakeAnyway resumes a session even if it looks open somewhere else.
+ */
+export function WakeAnyway(id: string): $CancellablePromise<void> {
+    return $Call.ByID(286153313, id);
 }

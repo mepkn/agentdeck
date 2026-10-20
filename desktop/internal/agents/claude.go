@@ -492,3 +492,6 @@ func prettyJSON(raw json.RawMessage) string {
 	b, _ := json.MarshalIndent(v, "", "  ")
 	return string(b)
 }
+
+// NewClaudeParser reads a Claude Code log outside a running session.
+func NewClaudeParser() Parser { return claude{}.NewParser() }

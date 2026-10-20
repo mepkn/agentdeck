@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionView } from "@/components/SessionView";
+import { PromptSearch } from "@/components/PromptSearch";
 import { Sidebar } from "@/components/Sidebar";
 import { useDeck } from "@/hooks/use-deck";
 import { useStoredToggle } from "@/hooks/use-stored-toggle";
@@ -14,6 +15,19 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const session = selected ? sessions[selected] : undefined;
   const [sidebarShown, toggleSidebar] = useStoredToggle("agentdeck.sidebarShown", true);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  // ⌘K searches past prompts.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen((o) => !o);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // Tell the backend what is on screen, so it doesn't mark it unread.
   useEffect(() => {
@@ -88,8 +102,19 @@ export default function App() {
           onAddProject={addProject}
           onProjectRemoved={reloadProjects}
           onHide={toggleSidebar}
+          onSearchPrompts={() => setSearchOpen(true)}
+          onProjectAdded={reloadProjects}
         />
       )}
+      <PromptSearch
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        onOpened={(id) => {
+          setSelected(id);
+          // Opening may have added the session's folder as a project.
+          reloadProjects();
+        }}
+      />
       <Toaster position="bottom-right" />
     </div>
   );

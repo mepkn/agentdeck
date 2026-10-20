@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/mepkn/agentdeck/desktop/internal/history"
 	"github.com/mepkn/agentdeck/desktop/internal/remote"
 	"github.com/mepkn/agentdeck/desktop/internal/sessions"
 	"github.com/mepkn/agentdeck/desktop/internal/shellenv"
@@ -94,7 +95,9 @@ func main() {
 	ev := &emitter{}
 	m := sessions.New(st, ev)
 	ev.m = m
-	deck := &DeckService{st: st, m: m}
+	deck := &DeckService{st: st, m: m, h: history.New()}
+	// Read the logs now so the first search is quick.
+	go deck.h.Refresh()
 
 	rpath, err := remote.DefaultPath()
 	if err != nil {

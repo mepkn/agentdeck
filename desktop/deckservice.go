@@ -3,8 +3,10 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 
 	"github.com/mepkn/agentdeck/desktop/internal/agents"
+	"github.com/mepkn/agentdeck/desktop/internal/history"
 	"github.com/mepkn/agentdeck/desktop/internal/remote"
 	"github.com/mepkn/agentdeck/desktop/internal/sessions"
 	"github.com/mepkn/agentdeck/desktop/internal/store"
@@ -17,6 +19,7 @@ type DeckService struct {
 	st *store.Store
 	m  *sessions.Manager
 	r  *remote.Remote
+	h  *history.Index
 }
 
 func (d *DeckService) Agents() []agents.Info { return agents.List() }
@@ -45,10 +48,22 @@ func (d *DeckService) Start(projectID, agent string) (sessions.Info, error) {
 	return d.m.Start(projectID, agent)
 }
 
-func (d *DeckService) Wake(id string) error  { return d.m.Wake(id) }
-func (d *DeckService) Sleep(id string) error { return d.m.Sleep(id) }
-func (d *DeckService) Close(id string) error { return d.m.Close(id) }
-func (d *DeckService) Focus(id string)       { d.m.Focus(id) }
+// ErrActiveElsewhere tells the frontend to ask before waking anyway.
+const ErrActiveElsewhere = "this session is in use somewhere else"
+
+// Wake resumes a sleeping session, unless it looks open in another terminal.
+func (d *DeckService) Wake(id string) error {
+	if d.m.ActiveElsewhere(id) {
+		return errors.New(ErrActiveElsewhere)
+	}
+	return d.m.Wake(id)
+}
+
+// WakeAnyway resumes a session even if it looks open somewhere else.
+func (d *DeckService) WakeAnyway(id string) error { return d.m.Wake(id) }
+func (d *DeckService) Sleep(id string) error      { return d.m.Sleep(id) }
+func (d *DeckService) Close(id string) error      { return d.m.Close(id) }
+func (d *DeckService) Focus(id string)            { d.m.Focus(id) }
 
 func (d *DeckService) Items(id string) ([]agents.Item, error) { return d.m.Items(id) }
 
@@ -85,3 +100,15 @@ func (d *DeckService) PairPhone() (string, error) {
 
 func (d *DeckService) StopPairing()                { d.r.StopPairing() }
 func (d *DeckService) RemovePhone(id string) error { return d.r.RemovePhone(id) }
+
+// SearchPrompts finds prompts typed in past Claude Code sessions.
+func (d *DeckService) SearchPrompts(query string) []history.Match { return d.h.Search(query, 100) }
+
+// PastSessions lists every logged Claude Code session, newest first.
+func (d *DeckService) PastSessions() []history.Session { return d.h.Sessions() }
+
+// OpenPast adds a logged session to agentdeck, asleep, or returns the one
+// already there.
+func (d *DeckService) OpenPast(agent, agentSessionID, dir, title string, updatedAt int64) (sessions.Info, error) {
+	return d.m.OpenPast(agent, agentSessionID, dir, title, updatedAt)
+}
