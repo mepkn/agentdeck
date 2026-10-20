@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { ChevronDownIcon, CodeIcon, FolderOpenIcon, SquareTerminalIcon } from "lucide-react";
+import { ChevronDownIcon, CodeIcon, FolderOpenIcon, GitBranchIcon, SquareTerminalIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -94,5 +94,34 @@ export function OpenInButton({ projectId }: { projectId: string }) {
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
+  );
+}
+
+function openLazygit(projectId: string, install = false) {
+  Deck.OpenLazygit(projectId, install).catch((e) => {
+    const msg = errorMessage(e, "Could not open lazygit.");
+    if (msg.includes("lazygit is not installed")) {
+      toast("lazygit is not installed", {
+        description: "Install it with Homebrew in Terminal, then open it.",
+        action: { label: "Install", onClick: () => openLazygit(projectId, true) },
+      });
+    } else {
+      toast.error(msg);
+    }
+  });
+}
+
+// Button that opens lazygit in Terminal, in the project's folder.
+export function LazygitButton({ projectId }: { projectId: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => openLazygit(projectId)}
+      title="Open lazygit"
+      aria-label="Open lazygit"
+      className="no-drag flex h-7 items-center rounded-md px-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+    >
+      <GitBranchIcon className="size-4" />
+    </button>
   );
 }

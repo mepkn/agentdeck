@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ChatControls, ControlsToggle } from "@/components/ChatControls";
 import { ChatView } from "@/components/ChatView";
 import { Composer } from "@/components/Composer";
-import { OpenInButton } from "@/components/OpenIn";
+import { LazygitButton, OpenInButton } from "@/components/OpenIn";
 import { PromptCard } from "@/components/PromptCard";
 import { StatusDot } from "@/components/StatusDot";
 import { TerminalView } from "@/components/TerminalView";
@@ -56,6 +56,7 @@ export function SessionView({ session, project, agent }: { session: Info; projec
           {agentName} · {project?.name} · {statusLabel[dot]}
         </span>
         {project && <OpenInButton projectId={project.id} />}
+        {project && <LazygitButton projectId={project.id} />}
         <div className="no-drag flex rounded-lg bg-muted p-0.5">
           {(["chat", "terminal"] as const).map((v) => (
             <button
