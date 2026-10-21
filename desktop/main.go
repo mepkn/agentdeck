@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/mepkn/agentdeck/desktop/internal/history"
 	"github.com/mepkn/agentdeck/desktop/internal/remote"
@@ -165,6 +166,33 @@ func main() {
 	app.Event.OnApplicationEvent(events.Mac.ApplicationShouldHandleReopen, func(*application.ApplicationEvent) {
 		window.Show()
 		window.Focus()
+	})
+
+	// App menu (under "agentdeck" in the menu bar) with Check for Updates….
+	updates := &updater{app: app}
+	updates.cleanup()
+	appMenu := app.NewMenu()
+	appMenu.AddRole(application.About)
+	appMenu.Add("Check for Updates…").OnClick(func(*application.Context) { go updates.check(true) })
+	appMenu.AddSeparator()
+	appMenu.AddRole(application.ServicesMenu)
+	appMenu.AddSeparator()
+	appMenu.AddRole(application.Hide)
+	appMenu.AddRole(application.HideOthers)
+	appMenu.AddRole(application.UnHide)
+	appMenu.AddSeparator()
+	appMenu.AddRole(application.Quit)
+	menuBar := app.NewMenu()
+	menuBar.AddSubmenu("agentdeck").Append(appMenu)
+	menuBar.AddRole(application.EditMenu)
+	menuBar.AddRole(application.WindowMenu)
+	app.Menu.Set(menuBar)
+	// Quiet check on launch: only says something when there is an update.
+	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
+		go func() {
+			time.Sleep(3 * time.Second)
+			updates.check(false)
+		}()
 	})
 
 	menu := application.NewMenu()

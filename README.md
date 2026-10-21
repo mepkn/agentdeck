@@ -15,6 +15,8 @@ your phone.
 - The session bar opens the project in Finder, Terminal or Zed, or in
   [gitdeck](https://github.com/mepkn/gitdeck) (git client with VS Code-style diffs).
 - Agents keep running with the window closed; the menu bar icon shows how many need you.
+- Checks for updates on launch and from agentdeck → Check for Updates… in the menu bar;
+  installs the latest GitHub release and restarts (running agents stop).
 - **Phone**: pair the Android app by QR code (phone button in the sidebar). It lists the
   sessions, shows the chat, sends messages, answers menus, has quick keys (Esc, Ctrl-C, arrows,
   Enter, Tab, ⇧Tab) and starts, sleeps, wakes and closes sessions. A push says when an agent needs
@@ -90,6 +92,12 @@ Set `AGENTDECK_RELAY` (e.g. `ws://localhost:8090/relay`) to point the Mac at a l
   one session, and sessions stay resumable in the CLIs themselves.
 - `internal/shellenv` loads the login shell's `PATH`, since apps opened from Finder lack it.
 - State (projects, sessions) is in `~/Library/Application Support/agentdeck/state.json`.
+- **Updates** (`desktop/update.go`): release builds carry their short commit SHA
+  (`-X main.commit`, set in `desktop/build/darwin/Taskfile.yml`). On launch and from the menu, the
+  app compares it with the tag of the latest GitHub release; if they differ it downloads
+  `agentdeck-macos.zip` to a temp folder, quits, swaps the `.app` in place (putting the old one back
+  if that fails), deletes the download and relaunches. The app's folder must be writable. A release
+  made for an Android-only change also counts as an update. Builds without a SHA skip the check.
 - **Phone link** (`desktop/internal/remote`, `mobile/src/lib/link.ts`): each device has an Ed25519
   key (its relay ID) and an X25519 key. The relay checks a signed challenge, then forwards opaque
   blobs between IDs and reports who is online. Messages are sealed with X25519 + HKDF-SHA256 +
