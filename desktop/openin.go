@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -107,6 +108,23 @@ func (d *DeckService) OpenLazygit(projectID string, install bool) error {
 		return err
 	}
 	return exec.Command("open", "-a", "Terminal", f.Name()).Run()
+}
+
+// ErrNoGitdeck tells the frontend to offer downloading gitdeck.
+const ErrNoGitdeck = "gitdeck is not installed"
+
+// OpenGitdeck opens a project in gitdeck, the companion git client, through
+// its gitdeck://open link.
+func (d *DeckService) OpenGitdeck(projectID string) error {
+	p, ok := d.st.Project(projectID)
+	if !ok {
+		return errors.New("project not found")
+	}
+	if installedApp([]string{"Gitdeck"}) == "" {
+		return errors.New(ErrNoGitdeck)
+	}
+	link := "gitdeck://open?" + url.Values{"path": {p.Path}}.Encode()
+	return exec.Command("open", link).Run()
 }
 
 func shellQuote(s string) string {

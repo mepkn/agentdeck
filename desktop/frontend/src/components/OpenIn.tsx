@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
-import { ChevronDownIcon, CodeIcon, FolderOpenIcon, GitBranchIcon, SquareTerminalIcon } from "lucide-react";
+import { Browser } from "@wailsio/runtime";
+import { ChevronDownIcon, CodeIcon, FolderOpenIcon, GitBranchIcon, GitCompareArrowsIcon, SquareTerminalIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -122,6 +123,37 @@ export function LazygitButton({ projectId }: { projectId: string }) {
       className="no-drag flex h-7 items-center rounded-md px-2 text-muted-foreground hover:bg-muted hover:text-foreground"
     >
       <GitBranchIcon className="size-4" />
+    </button>
+  );
+}
+
+function openGitdeck(projectId: string) {
+  Deck.OpenGitdeck(projectId).catch((e) => {
+    const msg = errorMessage(e, "Could not open gitdeck.");
+    if (msg.includes("gitdeck is not installed")) {
+      toast("gitdeck is not installed", {
+        description: "Download it, move it to Applications, then try again.",
+        action: { label: "Download", onClick: () => void Browser.OpenURL(GITDECK_DOWNLOAD) },
+      });
+    } else {
+      toast.error(msg);
+    }
+  });
+}
+
+const GITDECK_DOWNLOAD = "https://github.com/mepkn/gitdeck/releases/latest/download/gitdeck-macos.zip";
+
+// Button that opens the project in gitdeck, the git client with VS Code-style diffs.
+export function GitdeckButton({ projectId }: { projectId: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => openGitdeck(projectId)}
+      title="Open in gitdeck"
+      aria-label="Open in gitdeck"
+      className="no-drag flex h-7 items-center rounded-md px-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+    >
+      <GitCompareArrowsIcon className="size-4" />
     </button>
   );
 }

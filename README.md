@@ -12,6 +12,8 @@ your phone.
   and tool calls; **Terminal** (⌘J) is the raw CLI.
 - Menus the agent waits on (approvals, "trust this folder?") appear as a card with buttons.
 - Sleep stops the agent and keeps the session; Wake resumes it. Close removes it.
+- The session bar opens the project in Finder, Terminal or Zed, in lazygit, or in
+  [gitdeck](https://github.com/mepkn/gitdeck) (git client with VS Code-style diffs).
 - Agents keep running with the window closed; the menu bar icon shows how many need you.
 - **Phone**: pair the Android app by QR code (phone button in the sidebar). It lists the
   sessions, shows the chat, sends messages, answers menus, has quick keys (Esc, Ctrl-C, arrows,

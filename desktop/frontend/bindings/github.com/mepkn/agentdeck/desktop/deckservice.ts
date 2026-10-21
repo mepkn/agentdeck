@@ -69,6 +69,14 @@ export function OpenApps(): $CancellablePromise<string[] | null> {
 }
 
 /**
+ * OpenGitdeck opens a project in gitdeck, the companion git client, through
+ * its gitdeck://open link.
+ */
+export function OpenGitdeck(projectID: string): $CancellablePromise<void> {
+    return $Call.ByID(3358473537, projectID);
+}
+
+/**
  * OpenIn opens a project's folder in Finder, Terminal or Zed.
  */
 export function OpenIn(projectID: string, app: string): $CancellablePromise<void> {
