@@ -84,14 +84,6 @@ export function OpenIn(projectID: string, app: string): $CancellablePromise<void
 }
 
 /**
- * OpenLazygit opens Terminal in a project's folder and runs lazygit there.
- * With install set, it first runs `brew install lazygit` in that Terminal.
- */
-export function OpenLazygit(projectID: string, install: boolean): $CancellablePromise<void> {
-    return $Call.ByID(357775130, projectID, install);
-}
-
-/**
  * OpenPast adds a logged session to agentdeck, asleep, or returns the one
  * already there.
  */
